@@ -1,0 +1,176 @@
+@import './styles/tokens.css';
+/* tokens.css is the single source for color, typography, radius, shadow, motion.
+   The legacy public/styles.css (duplicate :root + dead layout classes) was removed;
+   the still-shared utilities (.panel / .eyebrow / .empty / .muted) live in the
+   components layer below. Naive UI components are themed via naive-theme.ts. */
+@import 'tailwindcss';
+@import './styles/views.css';
+@theme inline {
+  --color-ink: var(--color-canvas);
+  --color-panel: var(--color-surface);
+  --color-panel-2: var(--color-surface-raised);
+  --color-field: var(--color-field);
+  --color-line: var(--color-border);
+  --color-fg: var(--color-text);
+  --color-muted: var(--color-text-muted);
+  --color-signal: var(--color-primary);
+  --color-signal-dark: var(--color-primary-strong);
+  --font-sans: var(--font-family-sans);
+  --font-mono: var(--font-family-mono);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    background: var(--color-canvas);
+  }
+  body {
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-text);
+    font-family: var(--font-family-sans);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    letter-spacing: 0;
+    transition:
+      background-color var(--motion-standard) var(--ease-enter),
+      color var(--motion-standard) var(--ease-enter);
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  /* Naive inputs render their own focus ring via the theme boxShadowFocus; native
+     fallback controls are not used in the app. */
+  input,
+  select,
+  textarea {
+    outline: none;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--color-primary) 32%, transparent);
+  }
+}
+
+/* Page shell with the faint manufacturing grid. */
+.app-shell {
+  min-height: 100vh;
+  background-color: var(--color-canvas);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Brand lockup shared by the headers and login page. */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--text-base);
+  font-weight: 800;
+}
+.brand span,
+.brand small {
+  display: block;
+  color: var(--color-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--text-3xs);
+  letter-spacing: 0.1em;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+@layer components {
+  .panel {
+    @apply rounded-md border border-line bg-panel;
+    box-shadow: var(--shadow-sm);
+  }
+  .eyebrow {
+    margin-bottom: var(--space-2);
+    font-family: var(--font-family-mono);
+    font-size: var(--text-2xs);
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .empty {
+    padding: var(--space-16) var(--space-5);
+    text-align: center;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+  }
+}
+
+/* Global motion for custom (non-Naive) buttons: only color/background/border/
+   shadow/opacity/transform/filter so hover feedback never reflows layout. Naive
+   buttons carry their own transitions. */
+button {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform, filter;
+  transition-duration: var(--motion-standard);
+  transition-timing-function: var(--ease-enter);
+}
+button svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* Demand hall cards lift on hover and ring on keyboard focus. */
+.demand-card {
+  transition:
+    transform var(--motion-standard) var(--ease-enter),
+    border-color var(--motion-standard) var(--ease-enter),
+    box-shadow var(--motion-standard) var(--ease-enter);
+}
+.demand-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
+  box-shadow:
+    0 4px 12px rgb(0 0 0 / 0.2),
+    0 18px 40px rgb(0 0 0 / 0.28),
+    0 0 0 1px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+.demand-card:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+  box-shadow: var(--ring-focus);
+}
+
+/* Primary buttons get a soft primary halo on hover (subtle tech accent). */
+.n-button.n-button--primary-type:not(.n-button--disabled) {
+  transition:
+    color var(--motion-fast) var(--ease-enter),
+    background-color var(--motion-fast) var(--ease-enter),
+    border-color var(--motion-fast) var(--ease-enter),
+    box-shadow var(--motion-fast) var(--ease-enter),
+    transform var(--motion-fast) var(--ease-enter);
+}
+.n-button.n-button--primary-type:not(.n-button--disabled):hover {
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-primary) 28%, transparent);
+}
+.n-button.n-button--primary-type:not(.n-button--disabled):active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

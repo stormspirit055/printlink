@@ -1,0 +1,24 @@
+export type AdminDemand = {
+  id: string;
+  title: string;
+  description: string;
+  materialCode: string;
+  colorName: string;
+  budget: number;
+  quantity: number;
+  sizeX: number | null;
+  sizeY: number | null;
+  sizeZ: number | null;
+  volumeCm3: number | null;
+  estimatedWeight: number | null;
+  estimatedHours: number | null;
+  modelName: string | null;
+  modelUrl: string | null;
+  user: { nickname: string };
+};
+export type AdminMaterial = { id: string; name: string; pricePerGram: number; marketRange: string; active: boolean };
+export type AdminRule = { key: string; label: string; description: string; value: number; unit: string };
+export type AdminColor = { id: string; name: string; hex: string; multiplier: number; active: boolean };
+export type AdminConfig = { materials: AdminMaterial[]; rules: AdminRule[]; colors: AdminColor[] };
+export type AdminSection = 'reviews' | 'materials' | 'rules' | 'colors';
+export type SaveAdminConfig = (url: string, body: unknown) => Promise<void>;

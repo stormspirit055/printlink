@@ -1,0 +1,348 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum DemandStatus {
+  PENDING_REVIEW
+  OPEN
+  QUOTED
+  MATCHED
+  REJECTED
+  CANCELLED
+}
+
+enum QuoteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+enum OrderStatus {
+  AWAITING_PAYMENT
+  PAID
+  PRINTING
+  SHIPPED
+  COMPLETED
+  DISPUTED
+  CANCELLED
+  REFUNDED
+}
+
+enum EscrowStatus {
+  UNPAID
+  HELD
+  RELEASED
+  REFUNDED
+}
+
+enum ContactRequestStatus {
+  PENDING
+  APPROVED
+}
+
+model User {
+  id                      String            @id @default(cuid())
+  username                String            @unique
+  phone                   String?           @unique
+  nickname                String
+  avatarKey               String?
+  role                    UserRole          @default(USER)
+  bio                     String            @default("")
+  wechatId                String            @default("")
+  createdAt               DateTime          @default(now())
+  sessions                Session[]
+  printers                Printer[]
+  demands                 Demand[]
+  quotes                  Quote[]
+  buyerOrders             Order[]           @relation("BuyerOrders")
+  makerOrders             Order[]           @relation("MakerOrders")
+  sentReviews             Review[]          @relation("SentReviews")
+  receivedReviews         Review[]          @relation("ReceivedReviews")
+  events                  OrderEvent[]
+  shippingAddresses       ShippingAddress[]
+  notifications           Notification[]
+  demandActions           DemandAction[]
+  invitationCodeId        String?
+  invitedVia              InvitationCode?   @relation("InvitationRedeemers", fields: [invitationCodeId], references: [id])
+  invitationCodes         InvitationCode[]  @relation("InvitationCreatedBy")
+  sentContactRequests     ContactRequest[]  @relation("ContactRequestRequester")
+  receivedContactRequests ContactRequest[]  @relation("ContactRequestOwner")
+}
+
+model InvitationCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  createdById String
+  createdBy   User      @relation("InvitationCreatedBy", fields: [createdById], references: [id])
+  maxUses     Int
+  usedCount   Int       @default(0)
+  expiresAt   DateTime?
+  disabled    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  users       User[]    @relation("InvitationRedeemers")
+
+  @@index([createdById, createdAt])
+}
+
+model ShippingAddress {
+  id            String   @id @default(cuid())
+  userId        String
+  recipientName String
+  phone         String
+  province      String
+  city          String
+  district      String
+  detail        String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isDefault])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Printer {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  model       String
+  technology  String   @default("FDM")
+  maxX        Int
+  maxY        Int
+  maxZ        Int
+  colorMode   String   @default("single")
+  maxColors   Int      @default(1)
+  materials   String[]
+  nozzle      String   @default("0.4mm")
+  enclosed    Boolean  @default(false)
+  location    String   @default("")
+  description String   @default("")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+  quotes      Quote[]
+
+  @@index([userId, active])
+}
+
+model Material {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  category     String
+  pricePerGram Decimal  @db.Decimal(10, 4)
+  marketRange  String
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
+model PricingRule {
+  key         String  @id
+  label       String
+  value       Decimal @db.Decimal(12, 4)
+  unit        String
+  description String  @default("")
+}
+
+model ColorOption {
+  id         String  @id @default(cuid())
+  name       String  @unique
+  hex        String
+  multiplier Decimal @default(1) @db.Decimal(8, 4)
+  kind       String  @default("standard")
+  active     Boolean @default(true)
+}
+
+model Demand {
+  id               String           @id @default(cuid())
+  userId           String
+  title            String
+  description      String
+  materialCode     String
+  colorName        String
+  quantity         Int              @default(1)
+  sizeX            Decimal?         @db.Decimal(10, 2)
+  sizeY            Decimal?         @db.Decimal(10, 2)
+  sizeZ            Decimal?         @db.Decimal(10, 2)
+  volumeCm3        Decimal?         @db.Decimal(14, 2)
+  estimatedWeight  Decimal?         @db.Decimal(12, 2)
+  estimatedHours   Decimal?         @db.Decimal(12, 2)
+  budget           Decimal          @db.Decimal(12, 2)
+  acceptCount      Int              @default(0)
+  raiseCount       Int              @default(0)
+  deadline         DateTime?
+  recipientName    String           @default("")
+  recipientPhone   String           @default("")
+  shippingAddress  String           @default("")
+  modelKey         String?
+  modelName        String?
+  authorizedPublic Boolean          @default(false)
+  status           DemandStatus     @default(PENDING_REVIEW)
+  rejectReason     String           @default("")
+  createdAt        DateTime         @default(now())
+  user             User             @relation(fields: [userId], references: [id])
+  quotes           Quote[]
+  demandActions    DemandAction[]
+  order            Order?
+  contactRequests  ContactRequest[]
+  notifications    Notification[]
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+model ContactRequest {
+  id          String               @id @default(cuid())
+  demandId    String
+  requesterId String
+  ownerId     String
+  status      ContactRequestStatus @default(PENDING)
+  createdAt   DateTime             @default(now())
+  approvedAt  DateTime?
+  demand      Demand               @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  requester   User                 @relation("ContactRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  owner       User                 @relation("ContactRequestOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([demandId, requesterId])
+  @@index([ownerId, status, createdAt])
+}
+
+enum DemandActionType {
+  ACCEPT
+  RAISE
+}
+
+model DemandAction {
+  id        String           @id @default(cuid())
+  demandId  String
+  userId    String
+  type      DemandActionType
+  createdAt DateTime         @default(now())
+  demand    Demand           @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([demandId, userId, type])
+  @@index([demandId, type])
+}
+
+model Quote {
+  id        String      @id @default(cuid())
+  demandId  String
+  printerId String
+  userId    String
+  amount    Decimal     @db.Decimal(12, 2)
+  days      Int
+  message   String
+  status    QuoteStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+  demand    Demand      @relation(fields: [demandId], references: [id])
+  printer   Printer     @relation(fields: [printerId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+  order     Order?
+
+  @@unique([demandId, userId])
+  @@index([demandId, amount])
+}
+
+model Order {
+  id            String         @id @default(cuid())
+  orderNo       String         @unique
+  demandId      String         @unique
+  quoteId       String         @unique
+  buyerId       String
+  makerId       String
+  amount        Decimal        @db.Decimal(12, 2)
+  status        OrderStatus    @default(AWAITING_PAYMENT)
+  escrowStatus  EscrowStatus   @default(UNPAID)
+  paymentId     String?        @unique
+  trackingNo    String         @default("")
+  carrier       String         @default("")
+  proofKey      String?
+  disputeReason String         @default("")
+  version       Int            @default(0)
+  createdAt     DateTime       @default(now())
+  paidAt        DateTime?
+  shippedAt     DateTime?
+  completedAt   DateTime?
+  demand        Demand         @relation(fields: [demandId], references: [id])
+  quote         Quote          @relation(fields: [quoteId], references: [id])
+  buyer         User           @relation("BuyerOrders", fields: [buyerId], references: [id])
+  maker         User           @relation("MakerOrders", fields: [makerId], references: [id])
+  events        OrderEvent[]
+  reviews       Review[]
+  notifications Notification[]
+
+  @@index([buyerId, createdAt])
+  @@index([makerId, createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  orderId   String?
+  demandId  String?
+  type      String    @db.VarChar(50)
+  title     String    @db.VarChar(100)
+  body      String    @db.VarChar(500)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  demand    Demand?   @relation(fields: [demandId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([orderId])
+  @@index([demandId])
+}
+
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  actorId   String
+  type      String
+  detail    Json?
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actor     User     @relation(fields: [actorId], references: [id])
+
+  @@index([orderId, createdAt])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  orderId    String
+  fromUserId String
+  toUserId   String
+  rating     Int
+  content    String
+  createdAt  DateTime @default(now())
+  order      Order    @relation(fields: [orderId], references: [id])
+  fromUser   User     @relation("SentReviews", fields: [fromUserId], references: [id])
+  toUser     User     @relation("ReceivedReviews", fields: [toUserId], references: [id])
+
+  @@unique([orderId, fromUserId])
+}

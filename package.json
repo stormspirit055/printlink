@@ -1,0 +1,42 @@
+{
+  "name": "printlink",
+  "version": "2.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c green,cyan \"npm run dev -w @printlink/api\" \"npm run dev -w @printlink/web\"",
+    "build": "npm run build -w @printlink/api && npm run build -w @printlink/web",
+    "build:images": "docker buildx bake --load",
+    "start": "npm run start -w @printlink/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint apps --max-warnings=0",
+    "format": "prettier --write \"apps/**/*.{ts,vue,css,json}\" \"*.{js,mjs,json}\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,vue,css,json}\" \"*.{js,mjs,json}\"",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build",
+    "test": "npm run test --workspaces --if-present && npm run test:deploy",
+    "db:generate": "npm run db:generate -w @printlink/api",
+    "db:migrate": "npm run db:migrate -w @printlink/api",
+    "db:deploy": "npm run db:deploy -w @printlink/api",
+    "db:status": "npm run db:status -w @printlink/api",
+    "db:adopt": "npm run db:adopt -w @printlink/api",
+    "test:deploy": "node --test scripts/deploy.test.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "db:seed": "npm run db:seed -w @printlink/api",
+    "db:seed:demo": "npm run db:seed:demo -w @printlink/api",
+    "db:init-admin": "npm run db:init-admin -w @printlink/api"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "concurrently": "^9.2.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-vue": "^10.4.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.9.6",
+    "typescript-eslint": "^8.66.0"
+  }
+}

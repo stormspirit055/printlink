@@ -1,0 +1,15 @@
+services:
+  postgres:
+    ports: !reset []
+    restart: unless-stopped
+  redis:
+    ports: !reset []
+    restart: unless-stopped
+  migrate:
+    image: printlink-api:release
+  api:
+    image: printlink-api:release
+  web:
+    image: printlink-web:release
+    ports: !override
+      - '80:80'

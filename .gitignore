@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+coverage/
+apps/api/uploads/
+apps/web/.vite/
+data/*.db*
+public/uploads/*
+!public/uploads/.gitkeep

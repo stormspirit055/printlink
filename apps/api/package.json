@@ -1,0 +1,62 @@
+{
+  "name": "@printlink/api",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
+    "dev:watch": "tsx watch --clear-screen=false --env-file=../../.env src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=../../.env dist/src/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "prisma generate",
+    "db:migrate": "node --env-file-if-exists=../../.env ../../node_modules/prisma/build/index.js migrate dev --schema prisma/schema.prisma",
+    "db:deploy": "node --env-file-if-exists=../../.env ../../node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma",
+    "db:status": "node --env-file-if-exists=../../.env ../../node_modules/prisma/build/index.js migrate status --schema prisma/schema.prisma",
+    "db:adopt": "tsx --env-file-if-exists=../../.env prisma/adopt-current-schema.ts",
+    "db:seed": "tsx --env-file-if-exists=../../.env prisma/seed.ts",
+    "db:seed:demo": "tsx --env-file-if-exists=../../.env prisma/seed-demo.ts",
+    "db:init-admin": "tsx --env-file-if-exists=../../.env prisma/init-admin.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@alicloud/dypnsapi20170525": "^2.0.0",
+    "@alicloud/dysmsapi20170525": "^4.6.0",
+    "@alicloud/openapi-client": "^0.4.15",
+    "@alicloud/sts20150401": "^1.2.0",
+    "@alicloud/tea-util": "^1.4.11",
+    "@prisma/client": "^6.13.0",
+    "@province-city-china/area": "^8.5.8",
+    "@province-city-china/city": "^8.5.8",
+    "@province-city-china/province": "^8.5.8",
+    "ali-oss": "^6.23.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.6.1",
+    "multer": "^2.0.2",
+    "pino": "^9.7.0",
+    "pino-http": "^10.5.0",
+    "rate-limit-redis": "^6.0.1",
+    "tencentcloud-sdk-nodejs-sms": "^4.1.240",
+    "zod": "^4.0.14"
+  },
+  "devDependencies": {
+    "@types/ali-oss": "^6.23.3",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.1.0",
+    "prisma": "^6.13.0",
+    "supertest": "^7.1.4",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
