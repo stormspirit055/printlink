@@ -32,7 +32,7 @@ npm run dev
 填写微信号 → 发布 3MF 需求 → 管理员审核 → 接单方申请微信 → 需求方同意 → 私有通知披露微信号
 ```
 
-详细产品范围见 `docs/PRD.md`。阿里云单机部署见 [Docker 手动部署手册](docs/MANUAL_DOCKER_DEPLOYMENT.md)，最基础版本上线检查见 `docs/MVP_LAUNCH_GAP_CHECKLIST.md`，阿里云 OSS 对接见 `docs/ALIYUN_OSS_SETUP.md`，完整生产审计见 `docs/DEPLOYMENT_READINESS_AUDIT.md`。
+详细产品范围见 `docs/PRD.md`。部署说明见 [本地部署手册](docs/LOCAL_DEPLOYMENT.md) 和 [服务器部署手册](docs/SERVER_DEPLOYMENT.md)，最基础版本上线检查见 `docs/MVP_LAUNCH_GAP_CHECKLIST.md`，阿里云 OSS 对接见 `docs/ALIYUN_OSS_SETUP.md`，完整生产审计见 `docs/DEPLOYMENT_READINESS_AUDIT.md`。
 
 ## 上线约束
 
