@@ -35,7 +35,6 @@ function open(id: string) {
 
 <template>
   <section>
-    <div class="eyebrow">PUBLIC JOB BOARD / 实时更新</div>
     <n-input v-model:value="search" size="large" placeholder="搜索需求或材料" clearable class="search-box">
       <template #prefix><Search :size="16" aria-hidden="true" /></template>
     </n-input>

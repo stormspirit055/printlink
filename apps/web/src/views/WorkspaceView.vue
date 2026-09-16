@@ -55,7 +55,6 @@ const rowProps = (row: Demand) => ({
 
 <template>
   <section>
-    <div class="eyebrow">PERSONAL CONSOLE</div>
     <div class="stats">
       <div class="stat-card panel">
         <span class="stat-icon"><PackageOpen :size="22" aria-hidden="true" /></span>
@@ -64,7 +63,7 @@ const rowProps = (row: Demand) => ({
         </n-statistic>
       </div>
     </div>
-    <div class="eyebrow">MY DEMANDS</div>
+    <div class="eyebrow">我的需求</div>
     <QueryState :query="mineQuery" empty-text="还没有发布需求" skeleton="list">
       <n-data-table
         :columns="columns"

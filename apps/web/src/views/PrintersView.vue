@@ -25,7 +25,7 @@ function onSubmitted() {
 <template>
   <section>
     <div class="section-bar">
-      <div class="eyebrow">PRINT DEVICES</div>
+      <div class="eyebrow">打印设备</div>
       <n-button type="primary" @click="showPrinter = true">
         <template #icon><Plus :size="16" aria-hidden="true" /></template>录入设备
       </n-button>

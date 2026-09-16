@@ -12,4 +12,4 @@ services:
   web:
     image: printlink-web:release
     ports: !override
-      - '80:80'
+      - '${WEB_BIND:-80}:80'

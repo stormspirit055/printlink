@@ -1,6 +1,6 @@
 # PrintLink UI Design System v0.1
 
-本规范从现有“工业制造网络”视觉语言中提炼，目标是让界面在保持辨识度的同时，具备一致、可访问、可扩展的工程基础。代码中的唯一事实来源是 `apps/web/src/styles/tokens.css`。
+本规范沿用现有的界面视觉风格，目标是让界面在保持辨识度的同时，具备一致、可访问、可扩展的工程基础。代码中的唯一事实来源是 `apps/web/src/styles/tokens.css`。
 
 ## 1. 设计原则
 

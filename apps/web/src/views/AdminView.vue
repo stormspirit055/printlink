@@ -2,7 +2,19 @@
 import { computed, defineAsyncComponent, ref } from 'vue';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { useRouter } from 'vue-router';
-import { ArrowLeft, Boxes, Calculator, FileText, House, LogOut, Moon, Palette, Sun, Ticket, UserRound } from 'lucide-vue-next';
+import {
+  ArrowLeft,
+  Boxes,
+  Calculator,
+  FileText,
+  House,
+  LogOut,
+  Moon,
+  Palette,
+  Sun,
+  Ticket,
+  UserRound,
+} from 'lucide-vue-next';
 import { api, type Demand, type InvitationCode } from '../api';
 import type { AdminConfig } from '../admin/types';
 import { useAuth } from '../composables/useAuth';
@@ -279,8 +291,6 @@ function disableInvite(inv: InvitationCode) {
         </button>
       </aside>
       <main class="admin-content">
-        <div class="eyebrow">PRINTLINK ADMINISTRATION</div>
-
         <template v-if="section === 'reviews'">
           <button v-if="adminDetail" class="back-link" @click="adminDetail = null">
             <ArrowLeft :size="16" aria-hidden="true" />返回审核列表

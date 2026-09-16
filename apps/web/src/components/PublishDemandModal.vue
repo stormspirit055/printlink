@@ -284,8 +284,7 @@ async function submit() {
     class="publish-modal"
     @update:show="emit('update:show', $event)"
   >
-    <div class="eyebrow">3MF MODEL REQUEST</div>
-    <p class="muted section-intro">上传模型后自动解析制造参数与参考预算。</p>
+    <p class="muted section-intro">上传模型，自动解析参数并估算预算。</p>
     <n-alert type="info" class="contact-notice">
       接单方会先申请你的微信联系方式；只有你同意后，平台才会通过通知向对方发送微信号。
     </n-alert>
@@ -298,7 +297,7 @@ async function submit() {
         <n-upload accept=".3mf" :default-upload="false" :show-file-list="false" :on-before-upload="choose">
           <n-upload-dragger class="upload-zone">
             <strong>{{ analyzing ? '正在解析模型…' : analysis ? '模型解析完成' : '选择 3MF 模型' }}</strong>
-            <small>{{ analysis ? '点击此区域可重新选择文件' : '仅支持标准 .3mf 文件' }}</small>
+            <small>{{ analysis ? '点击更换文件' : '仅支持标准 .3mf 文件' }}</small>
           </n-upload-dragger>
         </n-upload>
       </n-form-item>

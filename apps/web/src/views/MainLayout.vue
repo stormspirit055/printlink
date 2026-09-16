@@ -65,7 +65,7 @@ function onSubmitted() {
   <div class="app-shell">
     <header class="user-header">
       <button class="brand brand-button" @click="router.push('/')">
-        <BrandMark /><span>印蛙<small>PRINTLINK NETWORK</small></span>
+        <BrandMark /><span>印蛙<small>PRINTLINK</small></span>
       </button>
       <nav>
         <button

@@ -51,6 +51,8 @@ rsync -az --delete \
 
 `--delete` 会删除服务器部署目录中本次源码不再包含的文件。生产配置、数据和备份应保存在排除项或部署目录之外。
 
+此上传方式不包含 Git 元数据。首次部署完成后，如需在服务器通过 `git pull` 更新版本，先执行 [版本迭代部署手册](./ITERATIVE_DEPLOYMENT.md) 的「一次性准备 Git 工作区」。服务器宿主机不需要安装 Node.js。
+
 ## 3. 创建生产配置
 
 登录服务器并进入部署目录：
@@ -80,6 +82,7 @@ NODE_ENV=production
 PORT=4311
 WEB_ORIGIN=https://example.com
 COOKIE_SECURE=true
+WEB_BIND=80
 
 POSTGRES_PASSWORD=<高强度数据库密码>
 DATABASE_URL=postgresql://printlink:<数据库密码>@postgres:5432/printlink?schema=public
@@ -212,16 +215,20 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml \
 
 当前 Web 容器直接监听宿主机 `80` 端口。使用云负载均衡器终止 TLS 时，可以将请求转发到服务器的 `80` 端口。
 
-如果在同一台服务器运行 Nginx 或 Caddy，需要先将 `docker-compose.production.yml` 中 Web 的端口映射改为只监听本机的其他端口：
+如果在同一台服务器运行 Nginx 或 Caddy，将 `.env` 中的 Web 监听地址改为只允许本机访问：
 
-```yaml
-services:
-  web:
-    ports: !override
-      - '127.0.0.1:8080:80'
+```dotenv
+WEB_BIND=127.0.0.1:8080
 ```
 
-然后让宿主机反向代理监听 `80` 和 `443`，并将请求转发到 `http://127.0.0.1:8080`。不要让 Web 容器和宿主机反向代理同时占用 `80` 端口。
+然后让宿主机反向代理监听 `80` 和 `443`，并将请求转发到 `http://127.0.0.1:8080`。修改后重新创建 Web 容器：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  --profile app up -d --no-deps --force-recreate web
+```
+
+不要让 Web 容器和宿主机反向代理同时占用 `80` 端口。
 
 确认 `.env` 使用实际 HTTPS 域名：
 
@@ -251,7 +258,7 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml \
   "fetch('http://127.0.0.1:4311/health/ready').then(async r => { console.log(await r.text()); process.exit(r.ok ? 0 : 1) })"
 ```
 
-如果已按第 8 节将 Web 改为 `127.0.0.1:8080`，首页检查地址相应改为 `http://127.0.0.1:8080/`。
+如果已按第 8 节设置 `WEB_BIND=127.0.0.1:8080`，首页检查地址相应改为 `http://127.0.0.1:8080/`。
 
 查看日志：
 
@@ -271,37 +278,7 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml \
 
 ## 10. 发布新版本
 
-上传新源码并准备新镜像前，为现有镜像保留回滚标签：
-
-```bash
-docker tag printlink-api:release printlink-api:rollback
-docker tag printlink-web:release printlink-web:rollback
-```
-
-构建或导入新镜像后执行迁移：
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.production.yml \
-  --profile app run --rm --no-deps migrate
-```
-
-迁移成功后更新服务：
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.production.yml \
-  --profile app up -d --no-deps --force-recreate --no-build api web
-```
-
-迁移失败时不要更新 API 和 Web。数据库迁移不会随镜像自动回滚；涉及删除或转换数据的发布必须提前完成备份和恢复演练。
-
-如果数据库仍兼容旧版本，可恢复旧镜像：
-
-```bash
-docker tag printlink-api:rollback printlink-api:release
-docker tag printlink-web:rollback printlink-web:release
-docker compose -f docker-compose.yml -f docker-compose.production.yml \
-  --profile app up -d --no-deps --force-recreate --no-build api web
-```
+首次部署完成后，从仓库拉取代码、构建新镜像、迁移数据库和回滚版本的操作统一见 [版本迭代部署手册](./ITERATIVE_DEPLOYMENT.md)。
 
 ## 11. 数据备份
 

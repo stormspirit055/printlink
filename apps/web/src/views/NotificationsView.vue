@@ -38,8 +38,7 @@ const pagination = computed(() => ({
   onChange: (target: number) => {
     page.value = target;
   },
-  prefix: ({ itemCount: count }: { itemCount: number | undefined }) =>
-    count ? `共 ${count} 条` : '',
+  prefix: ({ itemCount: count }: { itemCount: number | undefined }) => (count ? `共 ${count} 条` : ''),
 }));
 
 const dateTime = (s: string) => new Date(s).toLocaleString('zh-CN');
@@ -87,21 +86,18 @@ const columns = [
     title: '状态',
     key: 'readAt',
     width: 90,
-    render: (row: AppNotification) =>
-      row.readAt ? '已读' : h('span', { class: 'unread-cell' }, '未读'),
+    render: (row: AppNotification) => (row.readAt ? '已读' : h('span', { class: 'unread-cell' }, '未读')),
   },
 ] as const;
 </script>
 
 <template>
   <section class="notifications-view">
-    <div class="eyebrow">NOTIFICATIONS</div>
     <div class="page-head">
       <div class="page-title">
         <Bell :size="22" aria-hidden="true" />
         <div>
           <h2>消息通知</h2>
-          <p>需求受理、报价与联系方式相关的全部站内消息。</p>
         </div>
       </div>
       <div class="page-actions">
@@ -114,13 +110,7 @@ const columns = [
     </div>
     <div class="panel table-wrap">
       <QueryState :query="query" :bare="unreadOnly" empty-text="暂无消息通知" skeleton="list">
-        <n-data-table
-          :columns="columns"
-          :data="rows"
-          :row-props="rowProps"
-          :bordered="false"
-          size="large"
-        />
+        <n-data-table :columns="columns" :data="rows" :row-props="rowProps" :bordered="false" size="large" />
         <div class="table-footer">
           <n-pagination v-bind="pagination" />
         </div>

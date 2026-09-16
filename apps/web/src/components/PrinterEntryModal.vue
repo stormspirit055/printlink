@@ -84,8 +84,8 @@ async function save() {
     title="录入打印设备"
     class="printer-modal"
     @update:show="emit('update:show', $event)"
-    ><div class="eyebrow">REGISTER PRINT DEVICE</div>
-    <p class="muted intro">选择品牌和具体型号，设备规格会自动录入。</p>
+  >
+    <p class="muted intro">选择型号后自动填写设备规格。</p>
     <n-form label-placement="top"
       ><div class="two-cols">
         <n-form-item label="品牌" :feedback="errors.brand" :validation-status="errors.brand ? 'error' : undefined"

@@ -1,6 +1,6 @@
 # 印蛙 PrintLink
 
-面向个人用户的分布式 3D 打印需求撮合平台。当前版本通过授权后的微信联系方式交换完成撮合，不包含平台内报价、订单、支付或履约。
+面向个人用户的 3D 打印需求撮合平台。当前版本通过授权后的微信联系方式交换完成撮合，不包含平台内报价、订单、支付或履约。
 
 ## 技术栈
 
@@ -32,7 +32,7 @@ npm run dev
 填写微信号 → 发布 3MF 需求 → 管理员审核 → 接单方申请微信 → 需求方同意 → 私有通知披露微信号
 ```
 
-详细产品范围见 `docs/PRD.md`。部署说明见 [本地部署手册](docs/LOCAL_DEPLOYMENT.md) 和 [服务器部署手册](docs/SERVER_DEPLOYMENT.md)，最基础版本上线检查见 `docs/MVP_LAUNCH_GAP_CHECKLIST.md`，阿里云 OSS 对接见 `docs/ALIYUN_OSS_SETUP.md`，完整生产审计见 `docs/DEPLOYMENT_READINESS_AUDIT.md`。
+详细产品范围见 `docs/PRD.md`。部署说明见 [本地部署手册](docs/LOCAL_DEPLOYMENT.md)、[服务器首次部署手册](docs/SERVER_DEPLOYMENT.md) 和 [版本迭代部署手册](docs/ITERATIVE_DEPLOYMENT.md)，最基础版本上线检查见 `docs/MVP_LAUNCH_GAP_CHECKLIST.md`，阿里云 OSS 对接见 `docs/ALIYUN_OSS_SETUP.md`，完整生产审计见 `docs/DEPLOYMENT_READINESS_AUDIT.md`。
 
 ## 上线约束
 

@@ -78,46 +78,18 @@ function useDemoAccount(account: (typeof demoAccounts)[number]) {
   <main class="login-page app-shell">
     <section class="login-brand">
       <div class="brand">
-        <BrandMark /><span>印蛙<small>PRINTLINK NETWORK</small></span>
+        <BrandMark /><span>印蛙<small>PRINTLINK</small></span>
       </div>
-      <div>
-        <div class="eyebrow">DISTRIBUTED MANUFACTURING</div>
-        <h1>把闲置算力<br />变成<span>制造网络</span></h1>
-        <p>面向真实交易的个人 3D 打印协作平台。</p>
-        <svg class="network-art" viewBox="0 0 320 120" fill="none" aria-hidden="true">
-          <g stroke="currentColor" stroke-width="1" stroke-opacity="0.35">
-            <line x1="40" y1="60" x2="120" y2="24" />
-            <line x1="40" y1="60" x2="120" y2="96" />
-            <line x1="120" y1="24" x2="210" y2="60" />
-            <line x1="120" y1="96" x2="210" y2="60" />
-            <line x1="210" y1="60" x2="288" y2="28" />
-            <line x1="210" y1="60" x2="288" y2="92" />
-          </g>
-          <g fill="currentColor">
-            <circle cx="40" cy="60" r="4" />
-            <circle cx="120" cy="24" r="3" fill-opacity="0.7" />
-            <circle cx="120" cy="96" r="3" fill-opacity="0.7" />
-            <circle cx="210" cy="60" r="5" />
-            <circle cx="288" cy="28" r="3" fill-opacity="0.7" />
-            <circle cx="288" cy="92" r="3" fill-opacity="0.7" />
-          </g>
-        </svg>
-      </div>
-      <ul class="trust-row">
-        <li><b>模型解析</b><small>参数估算</small></li>
-        <li><b>需求审核</b><small>内容把关</small></li>
-        <li><b>授权联系</b><small>隐私可控</small></li>
-      </ul>
+      <h1>3D <span>打印</span></h1>
     </section>
     <section class="login-panel">
       <div class="login-box">
         <div class="brand mobile-brand">
-          <BrandMark /><span>印蛙<small>PRINTLINK NETWORK</small></span>
+          <BrandMark /><span>印蛙<small>PRINTLINK</small></span>
         </div>
         <div>
-          <div class="eyebrow">SECURE ACCESS</div>
-          <h2>接入制造网络</h2>
-          <p class="muted">手机号即账号，首次登录需邀请码完成注册。</p>
+          <h2>登录</h2>
+          <p class="muted">首次登录需填写邀请码。</p>
         </div>
         <n-form class="login-form" label-placement="top" novalidate @submit.prevent="login">
           <n-form-item
@@ -134,7 +106,10 @@ function useDemoAccount(account: (typeof demoAccounts)[number]) {
           >
             <div class="code-row">
               <n-input size="large" v-model:value="code" maxlength="6" placeholder="6 位验证码" inputmode="numeric" />
-              <n-button size="large" :disabled="!/^1\d{10}$/.test(phone) || sendingCode || countdown > 0" @click="sendCode"
+              <n-button
+                size="large"
+                :disabled="!/^1\d{10}$/.test(phone) || sendingCode || countdown > 0"
+                @click="sendCode"
                 ><template #icon><Send :size="16" /></template
                 >{{ countdown > 0 ? `${countdown}s` : '获取验证码' }}</n-button
               >
@@ -150,7 +125,7 @@ function useDemoAccount(account: (typeof demoAccounts)[number]) {
             />
           </n-form-item>
           <n-alert v-if="loginError" type="error">{{ loginError }}</n-alert>
-          <n-button size="large" attr-type="submit" type="primary" block>登录并进入平台</n-button>
+          <n-button size="large" attr-type="submit" type="primary" block>登录</n-button>
         </n-form>
         <section class="demo-accounts" aria-labelledby="demo-accounts-title">
           <div class="demo-heading">
@@ -178,32 +153,6 @@ function useDemoAccount(account: (typeof demoAccounts)[number]) {
 </template>
 
 <style scoped>
-.network-art {
-  color: var(--color-primary);
-  width: min(320px, 100%);
-  margin-top: var(--space-8);
-  opacity: 0.85;
-}
-.trust-row {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, auto);
-  gap: var(--space-6);
-}
-.trust-row li {
-  display: grid;
-  gap: 2px;
-}
-.trust-row b {
-  font-size: var(--text-sm);
-  color: var(--color-text);
-}
-.trust-row small {
-  font-size: var(--text-2xs);
-  color: var(--color-text-subtle);
-}
 .demo-accounts {
   display: grid;
   gap: var(--space-3);
@@ -253,9 +202,6 @@ function useDemoAccount(account: (typeof demoAccounts)[number]) {
   color: var(--color-primary-hover);
 }
 @media (max-width: 640px) {
-  .trust-row {
-    gap: var(--space-4);
-  }
   .demo-account-list {
     grid-template-columns: 1fr;
   }

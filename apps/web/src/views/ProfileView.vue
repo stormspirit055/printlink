@@ -33,7 +33,6 @@ async function save() {
 
 <template>
   <section class="profile-view">
-    <div class="eyebrow">PERSONAL PROFILE</div>
     <div class="profile-title">
       <UserRound :size="22" aria-hidden="true" />
       <div>
