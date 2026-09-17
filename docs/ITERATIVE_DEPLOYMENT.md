@@ -1,10 +1,10 @@
 # PrintLink 版本迭代部署手册
 
-本文用于已经完成首次部署的生产服务器。流程从 Git 仓库拉取 `main` 分支最新代码，在服务器构建新的生产镜像，执行数据库迁移，然后替换 API 和 Web 容器。
+本文用于已经完成首次部署的生产服务器。流程从 Git 仓库拉取 `main` 分支最新代码，构建新的生产镜像，执行数据库迁移，然后替换 API 和 Web 容器。
 
 本文不包含 Docker、域名、HTTPS、短信、OSS、数据库和环境变量的首次配置。首次部署请阅读 [服务器部署手册](./SERVER_DEPLOYMENT.md)。
 
-服务器不需要安装 Node.js。镜像构建和健康检查使用 Docker 容器内的 Node.js。
+服务器不需要安装 Node.js。镜像构建和健康检查使用 Docker 容器内的 Node.js。内存较小的服务器应在本机构建镜像后导入服务器。
 
 ## 0. 一次性准备 Git 工作区
 
@@ -157,6 +157,8 @@ bash /opt/printlink/scripts/deploy-update.sh /opt/printlink /var/backups/printli
 
 脚本检查干净的 `main` 工作区，备份数据库及运行镜像，然后拉取代码、构建镜像、迁移数据库和替换 API/Web。它最多重试 API 就绪检查 30 次，间隔 2 秒，并检查 Web 容器首页。日志、数据库备份和版本记录保存在备份目录下独立的 `release-*` 目录中。
 
+服务器内存不足时，在本地构建并导入两个 `release` 镜像后，设置 `DEPLOY_SKIP_BUILD=1` 运行脚本。脚本仍会执行备份、拉取代码、迁移和替换，不会在服务器执行 Buildx 构建。
+
 任何步骤失败都会停止发布。失败不会自动回滚；迁移可能已经改变数据库，先根据日志确认数据库兼容性，再按第 10 节处理。数据库备份不包含 OSS 对象或上传卷。脚本完成后仍需要通过实际生产域名验证登录、上传和本次改动的业务流程。
 
 开始发布前，确认：
@@ -271,7 +273,7 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml \
 
 ## 6. 构建新镜像
 
-在服务器构建并加载新的 `release` 镜像：
+服务器内存充足时，在服务器构建并加载新的 `release` 镜像：
 
 ```bash
 docker buildx bake --load
@@ -285,6 +287,18 @@ docker image inspect printlink-web:release --format '{{.Id}} {{.Created}} {{.Arc
 ```
 
 两个镜像的架构应为 `amd64`。构建失败不会替换正在运行的容器；修复构建问题后重新执行本节命令。
+
+当前服务器内存较小，建议在本地项目根目录构建并导入镜像：
+
+```bash
+npm run build:images
+docker image inspect printlink-api:release --format '{{.Architecture}}'
+docker image inspect printlink-web:release --format '{{.Architecture}}'
+docker save printlink-api:release printlink-web:release | gzip -1 | \
+  ssh root@120.26.86.139 'gzip -d | docker load'
+```
+
+本机不是 `amd64` 时，`docker-bake.hcl` 已指定 `linux/amd64`，不要删除该平台设置。
 
 ## 7. 执行数据库迁移
 
@@ -376,7 +390,7 @@ docker image ls
 
 ## 快速命令清单
 
-以下命令适用于工作区干净、代码已合并到 `origin/main`、备份目录已存在的常规发布。执行过程中任一步失败，都应停止后续步骤：
+以下命令适用于本机构建并导入镜像的发布。先在本地执行 `npm run build:images` 和镜像导入，再在服务器执行。执行过程中任一步失败，都应停止后续步骤：
 
 ```bash
 cd /opt/printlink
@@ -400,14 +414,5 @@ git pull --ff-only origin main
 
 docker compose -f docker-compose.yml -f docker-compose.production.yml \
   --profile app config --quiet
-docker buildx bake --load
-
-docker compose -f docker-compose.yml -f docker-compose.production.yml \
-  --profile app run --rm --no-deps migrate
-docker compose -f docker-compose.yml -f docker-compose.production.yml \
-  --profile app up -d --no-deps --force-recreate --no-build api web
-docker compose -f docker-compose.yml -f docker-compose.production.yml \
-  --profile app ps
-docker compose -f docker-compose.yml -f docker-compose.production.yml \
-  --profile app logs --tail=200 api web
+DEPLOY_SKIP_BUILD=1 bash scripts/deploy-update.sh
 ```

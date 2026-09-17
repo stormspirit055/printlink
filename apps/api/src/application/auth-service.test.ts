@@ -81,6 +81,14 @@ describe('AuthService.loginByPhone', () => {
     expect(result.user.role).toBe('USER');
   });
 
+  test('recovers when a concurrent dev login creates the phone first', async () => {
+    const { service, prisma } = setupPhoneLogin({ nodeEnv: 'test', devPhones: phone });
+    prisma.user.create.mockRejectedValueOnce({ code: 'P2002' });
+    prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(phoneUser);
+    await expect(service.loginByPhone(phone, '000000')).resolves.toMatchObject({ user: { phone } });
+    expect(prisma.session.create).toHaveBeenCalled();
+  });
+
   test('rejects a first-time login without an invite code', async () => {
     const { service } = setupPhoneLogin();
     await expect(service.loginByPhone(phone, otpCode)).rejects.toMatchObject({
@@ -127,5 +135,13 @@ describe('AuthService.loginByPhone', () => {
     });
     expect(result.user.role).toBe('USER');
     expect(typeof result.token).toBe('string');
+  });
+
+  test('recovers when a concurrent invited login creates the phone first', async () => {
+    const { service, prisma } = setupPhoneLogin({ invite: validInvite });
+    prisma.$transaction.mockRejectedValueOnce({ code: 'P2002' });
+    prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(phoneUser);
+    await expect(service.loginByPhone(phone, otpCode, 'WELCOME1')).resolves.toMatchObject({ user: { phone } });
+    expect(prisma.session.create).toHaveBeenCalled();
   });
 });

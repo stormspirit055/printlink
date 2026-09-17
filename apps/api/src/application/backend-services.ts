@@ -10,6 +10,10 @@ import { avatarUrl, randomAvatarKey } from '../services/avatar-service.js';
 import type { RealtimeService } from '../services/realtime-service.js';
 import type { AppConfig } from '../config.js';
 
+function isPrismaCode(error: unknown, code: string): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === code;
+}
+
 export type AddressInput = {
   recipientName: string;
   phone: string;
@@ -77,24 +81,44 @@ export class AuthService {
     if (existing) return this.createSession(existing);
     // Dev phones bypass invitation gating so the demo accounts work in a dev
     // environment even before the seed has run; production never sets isDev.
-    if (isDev) return this.createSession(await this.createPhoneUser(phone));
+    if (isDev) {
+      try {
+        return this.createSession(await this.createPhoneUser(phone));
+      } catch (error) {
+        // Two first logins can race after both read an absent phone. In that
+        // case the losing insert hits the unique phone constraint; the user
+        // already exists and can safely continue logging in.
+        if (!isPrismaCode(error, 'P2002')) throw error;
+        const created = await this.prisma.user.findUnique({ where: { phone } });
+        if (created) return this.createSession(created);
+        throw error;
+      }
+    }
     // First-time login is gated by an invitation code so phone numbers cannot
     // self-register at will.
     if (!inviteCode || !inviteCode.trim()) throw new AppError(400, 'INVITATION_CODE_INVALID', '首次登录需要邀请码');
     const invite = await this.resolveInvite(inviteCode.trim());
-    const user = await this.prisma.$transaction(async (tx) => {
-      await this.reserveInvite(tx, invite);
-      return tx.user.create({
-        data: {
-          username: `phone_${phone}`,
-          phone,
-          nickname: `用户${phone.slice(-4)}`,
-          avatarKey: randomAvatarKey(),
-          role: 'USER',
-          invitationCodeId: invite.id,
-        },
+    let user: User;
+    try {
+      user = await this.prisma.$transaction(async (tx) => {
+        await this.reserveInvite(tx, invite);
+        return tx.user.create({
+          data: {
+            username: `phone_${phone}`,
+            phone,
+            nickname: `用户${phone.slice(-4)}`,
+            avatarKey: randomAvatarKey(),
+            role: 'USER',
+            invitationCodeId: invite.id,
+          },
+        });
       });
-    });
+    } catch (error) {
+      if (!isPrismaCode(error, 'P2002')) throw error;
+      const created = await this.prisma.user.findUnique({ where: { phone } });
+      if (!created) throw error;
+      user = created;
+    }
     return this.createSession(user);
   }
 

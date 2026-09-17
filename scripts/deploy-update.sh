@@ -47,7 +47,12 @@ main() {
   compose config --quiet
 
   stage=build
-  docker buildx bake --load
+  if [[ ${DEPLOY_SKIP_BUILD:-0} == 1 ]]; then
+    echo 'Skipping server-side image build; using imported release images.'
+    docker image inspect printlink-api:release printlink-web:release >/dev/null
+  else
+    docker buildx bake --load
+  fi
   stage=migrate
   compose run --rm --no-deps --no-build migrate
   stage=replace
