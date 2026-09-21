@@ -1,6 +1,6 @@
 FROM node:22-alpine AS build
 WORKDIR /app
-ENV NODE_OPTIONS=--max-old-space-size=384
+ENV NODE_OPTIONS=--max-old-space-size=768
 COPY package*.json ./
 COPY apps/web/package.json apps/web/package.json
 RUN npm ci --workspace=@printlink/web --include-workspace-root
