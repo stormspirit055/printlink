@@ -6,6 +6,7 @@ main() {
   local deploy_dir=${1:-/opt/printlink}
   local backup_dir=${2:-/var/backups/printlink}
   local stage=preflight old_commit new_commit api_container web_container api_image web_image release_dir attempt
+  local memory_kib apps_stopped=0
   cd "$deploy_dir"
   for command_name in git docker flock; do
     command -v "$command_name" >/dev/null || { echo "Missing command: $command_name" >&2; return 1; }
@@ -15,7 +16,7 @@ main() {
   [[ $(git branch --show-current) == main ]] || { echo 'Expected main branch.' >&2; return 1; }
   [[ -z $(git status --porcelain) ]] || { echo 'Working tree must be clean.' >&2; return 1; }
   [[ -f .env ]] || { echo 'Production .env is missing.' >&2; return 1; }
-  docker buildx version >/dev/null
+  docker compose version >/dev/null
   compose() { docker compose -f docker-compose.yml -f docker-compose.production.yml --profile app "$@"; }
   compose config --quiet
   api_container=$(compose ps -q api)
@@ -28,7 +29,17 @@ main() {
   backup_dir=$(cd "$backup_dir" && pwd)
   release_dir=$(mktemp -d "$backup_dir/release-$(date +%Y%m%d-%H%M%S)-XXXXXX")
   exec > >(tee -a "$release_dir/deploy.log") 2>&1
-  trap 'echo "Deployment failed at stage: $stage. Records: $release_dir. No automatic rollback performed." >&2' ERR
+  on_error() {
+    local exit_code=$?
+    trap - ERR
+    if [[ $apps_stopped == 1 ]]; then
+      echo 'Build failed; restarting the previous API and Web containers.' >&2
+      compose up -d --no-deps --no-build api web || true
+    fi
+    echo "Deployment failed at stage: $stage. Records: $release_dir. No database or image rollback performed." >&2
+    exit "$exit_code"
+  }
+  trap on_error ERR
   printf 'previous_commit=%s\napi_image=%s\nweb_image=%s\n' "$old_commit" "$api_image" "$web_image" > "$release_dir/version.txt"
 
   stage=backup
@@ -51,7 +62,21 @@ main() {
     echo 'Skipping server-side image build; using imported release images.'
     docker image inspect printlink-api:release printlink-web:release >/dev/null
   else
-    docker buildx bake --load
+    memory_kib=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
+    if (( memory_kib < 1572864 )); then
+      echo 'Low-memory server detected; stopping API and Web during the sequential build.'
+      compose stop api web
+      apps_stopped=1
+    fi
+    docker build --file apps/api/Dockerfile --tag "printlink-api:$new_commit" .
+    docker build --file apps/web/Dockerfile --tag "printlink-web:$new_commit" .
+    if [[ $apps_stopped == 1 ]]; then
+      echo 'Build complete; restarting the previous API and Web before migration.'
+      compose up -d --no-deps --no-build api web
+      apps_stopped=0
+    fi
+    docker tag "printlink-api:$new_commit" printlink-api:release
+    docker tag "printlink-web:$new_commit" printlink-web:release
   fi
   stage=migrate
   compose run --rm --no-deps --no-build migrate
@@ -76,6 +101,19 @@ main() {
   echo "Backup and logs: $release_dir"
   echo 'Verify login, uploads and changed workflows through the production domain.'
 }
+
+if [[ ${DEPLOY_BOOTSTRAPPED:-0} != 1 ]]; then
+  bootstrap_dir=${1:-/opt/printlink}
+  bootstrap_script=$(mktemp /tmp/printlink-deploy-update-XXXXXX.sh)
+  trap 'rm -f "$bootstrap_script"' EXIT
+  git -C "$bootstrap_dir" fetch --prune origin
+  git -C "$bootstrap_dir" show origin/main:scripts/deploy-update.sh > "$bootstrap_script"
+  if ! cmp -s "$bootstrap_script" "$bootstrap_dir/scripts/deploy-update.sh"; then
+    echo 'A newer deployment script was found; running that version.'
+    DEPLOY_BOOTSTRAPPED=1 bash "$bootstrap_script" "$@"
+    exit $?
+  fi
+fi
 
 # Parse the complete function before pulling code that may replace this file.
 main "$@"

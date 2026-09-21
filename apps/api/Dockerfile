@@ -1,5 +1,6 @@
 FROM node:22-alpine AS build
 WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=384
 RUN apk add --no-cache openssl
 COPY package*.json ./
 COPY apps/api/package.json apps/api/package.json

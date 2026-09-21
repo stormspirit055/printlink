@@ -4,7 +4,7 @@
 
 本文不包含 Docker、域名、HTTPS、短信、OSS、数据库和环境变量的首次配置。首次部署请阅读 [服务器部署手册](./SERVER_DEPLOYMENT.md)。
 
-服务器不需要安装 Node.js。镜像构建和健康检查使用 Docker 容器内的 Node.js。内存较小的服务器应在本机构建镜像后导入服务器。
+服务器不需要安装 Node.js。镜像构建和健康检查使用 Docker 容器内的 Node.js。
 
 ## 0. 一次性准备 Git 工作区
 
@@ -42,7 +42,6 @@ sudo yum install -y git
 ```bash
 git --version
 docker compose version
-docker buildx version
 ```
 
 ### 配置仓库只读部署密钥
@@ -155,9 +154,9 @@ bash /opt/printlink/scripts/deploy-update.sh /opt/printlink /var/backups/printli
 
 使用能够访问 Docker、仓库和 `/opt` 目录的部署用户执行。脚本要求 `git`、`docker` 和 `flock` 可用，不需要服务器安装 Node.js。`flock` 由 Linux 的 util-linux 软件包提供。
 
-脚本检查干净的 `main` 工作区，备份数据库及运行镜像，然后拉取代码、构建镜像、迁移数据库和替换 API/Web。它最多重试 API 就绪检查 30 次，间隔 2 秒，并检查 Web 容器首页。日志、数据库备份和版本记录保存在备份目录下独立的 `release-*` 目录中。
+脚本检查干净的 `main` 工作区，备份数据库及运行镜像，然后拉取代码、构建镜像、迁移数据库和替换 API/Web。API 和 Web 镜像按顺序构建，避免 Buildx 同时构建两个镜像。服务器总内存低于 1.5 GiB 时，脚本在构建期间临时停止 API 和 Web，构建完成后先恢复旧服务，再执行迁移和版本切换。PostgreSQL 和 Redis 不停止。
 
-服务器内存不足时，在本地构建并导入两个 `release` 镜像后，设置 `DEPLOY_SKIP_BUILD=1` 运行脚本。脚本仍会执行备份、拉取代码、迁移和替换，不会在服务器执行 Buildx 构建。
+脚本最多重试 API 就绪检查 30 次，间隔 2 秒，并检查 Web 容器首页。日志、数据库备份和版本记录保存在备份目录下独立的 `release-*` 目录中。低内存服务器在构建期间会出现短暂停机，停机时长取决于镜像构建时间。
 
 任何步骤失败都会停止发布。失败不会自动回滚；迁移可能已经改变数据库，先根据日志确认数据库兼容性，再按第 10 节处理。数据库备份不包含 OSS 对象或上传卷。脚本完成后仍需要通过实际生产域名验证登录、上传和本次改动的业务流程。
 
@@ -165,7 +164,7 @@ bash /opt/printlink/scripts/deploy-update.sh /opt/printlink /var/backups/printli
 
 - 当前服务已通过 `docker-compose.yml` 和 `docker-compose.production.yml` 运行。
 - 服务器部署目录为 `/opt/printlink`，并且是可以访问 `origin` 的 Git 工作区。
-- 服务器已安装 Git、Docker Compose v2 和 Docker Buildx；不要求安装 Node.js 或 npm。
+- 服务器已安装 Git、Docker Engine 和 Docker Compose v2；不要求安装 Node.js 或 npm。
 - 生产 `.env` 已存在，不需要随代码更新。
 - 待发布代码已经合并到远端 `main` 分支。
 - 当前没有其他人员执行部署或数据库结构变更。
@@ -273,10 +272,11 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml \
 
 ## 6. 构建新镜像
 
-服务器内存充足时，在服务器构建并加载新的 `release` 镜像：
+脚本默认在服务器顺序构建 API 和 Web 镜像。等价命令为：
 
 ```bash
-docker buildx bake --load
+docker build -f apps/api/Dockerfile -t printlink-api:<提交哈希> .
+docker build -f apps/web/Dockerfile -t printlink-web:<提交哈希> .
 ```
 
 构建成功后检查镜像：
@@ -288,7 +288,7 @@ docker image inspect printlink-web:release --format '{{.Id}} {{.Created}} {{.Arc
 
 两个镜像的架构应为 `amd64`。构建失败不会替换正在运行的容器；修复构建问题后重新执行本节命令。
 
-当前服务器内存较小，建议在本地项目根目录构建并导入镜像：
+如果不接受构建期间的短暂停机，也可以在本地项目根目录构建并导入镜像：
 
 ```bash
 npm run build:images
@@ -390,29 +390,19 @@ docker image ls
 
 ## 快速命令清单
 
-以下命令适用于本机构建并导入镜像的发布。先在本地执行 `npm run build:images` 和镜像导入，再在服务器执行。执行过程中任一步失败，都应停止后续步骤：
+代码推送到远端 `main` 后，在服务器执行：
 
 ```bash
 cd /opt/printlink
-git status --short
-
-docker compose -f docker-compose.yml -f docker-compose.production.yml \
-  exec -T postgres pg_dump -U printlink -d printlink -Fc \
-  > /var/backups/printlink/printlink-$(date +%Y%m%d-%H%M%S).dump
-
-DEPLOY_API_CONTAINER_ID=$(docker compose -f docker-compose.yml -f docker-compose.production.yml --profile app ps -q api)
-DEPLOY_WEB_CONTAINER_ID=$(docker compose -f docker-compose.yml -f docker-compose.production.yml --profile app ps -q web)
-DEPLOY_API_IMAGE_ID=$(docker inspect --format '{{.Image}}' "$DEPLOY_API_CONTAINER_ID")
-DEPLOY_WEB_IMAGE_ID=$(docker inspect --format '{{.Image}}' "$DEPLOY_WEB_CONTAINER_ID")
-docker tag "$DEPLOY_API_IMAGE_ID" printlink-api:rollback
-docker tag "$DEPLOY_WEB_IMAGE_ID" printlink-web:rollback
-
-git fetch --prune origin
-git log --oneline HEAD..origin/main
-git switch main
-git pull --ff-only origin main
-
-docker compose -f docker-compose.yml -f docker-compose.production.yml \
-  --profile app config --quiet
-DEPLOY_SKIP_BUILD=1 bash scripts/deploy-update.sh
+bash scripts/deploy-update.sh
 ```
+
+首次启用本版本的脚本时，服务器仍是旧脚本，需要先执行一次：
+
+```bash
+cd /opt/printlink
+git pull --ff-only origin main
+bash scripts/deploy-update.sh
+```
+
+后续版本只需运行脚本。脚本先从 `origin/main` 读取最新版部署脚本，再执行备份、`git pull --ff-only origin main`、顺序构建、迁移和替换，因此应用代码和部署脚本可以在同一次提交中更新。
