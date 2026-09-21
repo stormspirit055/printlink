@@ -5,8 +5,9 @@ umask 077
 main() {
   local deploy_dir=${1:-/opt/printlink}
   local backup_dir=${2:-/var/backups/printlink}
+  local registry=${DEPLOY_REGISTRY:-ghcr.io/stormspirit055}
   local stage=preflight old_commit new_commit api_container web_container api_image web_image release_dir attempt
-  local memory_kib apps_stopped=0
+  local api_remote_image web_remote_image
   cd "$deploy_dir"
   for command_name in git docker flock; do
     command -v "$command_name" >/dev/null || { echo "Missing command: $command_name" >&2; return 1; }
@@ -32,10 +33,6 @@ main() {
   on_error() {
     local exit_code=$?
     trap - ERR
-    if [[ $apps_stopped == 1 ]]; then
-      echo 'Build failed; restarting the previous API and Web containers.' >&2
-      compose up -d --no-deps --no-build api web || true
-    fi
     echo "Deployment failed at stage: $stage. Records: $release_dir. No database or image rollback performed." >&2
     exit "$exit_code"
   }
@@ -57,26 +54,26 @@ main() {
   printf 'new_commit=%s\n' "$new_commit" >> "$release_dir/version.txt"
   compose config --quiet
 
-  stage=build
+  stage=pull-images
   if [[ ${DEPLOY_SKIP_BUILD:-0} == 1 ]]; then
-    echo 'Skipping server-side image build; using imported release images.'
+    echo 'Using release images already imported on this server.'
     docker image inspect printlink-api:release printlink-web:release >/dev/null
   else
-    memory_kib=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
-    if (( memory_kib < 1572864 )); then
-      echo 'Low-memory server detected; stopping API and Web during the sequential build.'
-      compose stop api web
-      apps_stopped=1
-    fi
-    docker build --file apps/api/Dockerfile --tag "printlink-api:$new_commit" .
-    docker build --file apps/web/Dockerfile --tag "printlink-web:$new_commit" .
-    if [[ $apps_stopped == 1 ]]; then
-      echo 'Build complete; restarting the previous API and Web before migration.'
-      compose up -d --no-deps --no-build api web
-      apps_stopped=0
-    fi
-    docker tag "printlink-api:$new_commit" printlink-api:release
-    docker tag "printlink-web:$new_commit" printlink-web:release
+    api_remote_image="$registry/printlink-api:$new_commit"
+    web_remote_image="$registry/printlink-web:$new_commit"
+    echo "Waiting for published images for commit $new_commit..."
+    for attempt in {1..40}; do
+      if docker pull "$api_remote_image" && docker pull "$web_remote_image"; then
+        break
+      fi
+      if [[ $attempt == 40 ]]; then
+        echo 'Images were not available after 20 minutes. Check the GitHub Actions workflow and package visibility.' >&2
+        return 1
+      fi
+      sleep 30
+    done
+    docker tag "$api_remote_image" printlink-api:release
+    docker tag "$web_remote_image" printlink-web:release
   fi
   stage=migrate
   compose run --rm --no-deps --no-build migrate

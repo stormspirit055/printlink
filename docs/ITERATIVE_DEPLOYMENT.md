@@ -4,7 +4,7 @@
 
 本文不包含 Docker、域名、HTTPS、短信、OSS、数据库和环境变量的首次配置。首次部署请阅读 [服务器部署手册](./SERVER_DEPLOYMENT.md)。
 
-服务器不需要安装 Node.js。镜像构建和健康检查使用 Docker 容器内的 Node.js。
+服务器不需要安装 Node.js，也不在服务器构建镜像。代码推送到 `main` 后，GitHub Actions 构建并发布 `linux/amd64` 镜像。服务器脚本拉取对应提交的镜像，然后执行迁移和替换。
 
 ## 0. 一次性准备 Git 工作区
 
@@ -154,9 +154,9 @@ bash /opt/printlink/scripts/deploy-update.sh /opt/printlink /var/backups/printli
 
 使用能够访问 Docker、仓库和 `/opt` 目录的部署用户执行。脚本要求 `git`、`docker` 和 `flock` 可用，不需要服务器安装 Node.js。`flock` 由 Linux 的 util-linux 软件包提供。
 
-脚本检查干净的 `main` 工作区，备份数据库及运行镜像，然后拉取代码、构建镜像、迁移数据库和替换 API/Web。API 和 Web 镜像按顺序构建，避免 Buildx 同时构建两个镜像。服务器总内存低于 1.5 GiB 时，脚本在构建期间临时停止 API 和 Web，构建完成后先恢复旧服务，再执行迁移和版本切换。PostgreSQL 和 Redis 不停止。
+脚本检查干净的 `main` 工作区，备份数据库及运行镜像，然后拉取代码、等待 GitHub Actions 镜像、迁移数据库和替换 API/Web。镜像尚未发布时，脚本每 30 秒重试一次，最多等待 20 分钟。拉取和等待镜像期间，现有服务继续运行。
 
-脚本最多重试 API 就绪检查 30 次，间隔 2 秒，并检查 Web 容器首页。日志、数据库备份和版本记录保存在备份目录下独立的 `release-*` 目录中。低内存服务器在构建期间会出现短暂停机，停机时长取决于镜像构建时间。
+脚本最多重试 API 就绪检查 30 次，间隔 2 秒，并检查 Web 容器首页。日志、数据库备份和版本记录保存在备份目录下独立的 `release-*` 目录中。
 
 任何步骤失败都会停止发布。失败不会自动回滚；迁移可能已经改变数据库，先根据日志确认数据库兼容性，再按第 10 节处理。数据库备份不包含 OSS 对象或上传卷。脚本完成后仍需要通过实际生产域名验证登录、上传和本次改动的业务流程。
 
@@ -270,35 +270,25 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml \
 
 命令无输出并以状态码 `0` 结束表示配置可以解析。配置检查失败时停止发布并修复代码，不要替换现有容器。
 
-## 6. 构建新镜像
+## 6. 获取新镜像
 
-脚本默认在服务器顺序构建 API 和 Web 镜像。等价命令为：
+代码推送到 `main` 后，`.github/workflows/publish-images.yml` 在 GitHub Actions 构建并发布：
 
-```bash
-docker build -f apps/api/Dockerfile -t printlink-api:<提交哈希> .
-docker build -f apps/web/Dockerfile -t printlink-web:<提交哈希> .
+```text
+ghcr.io/stormspirit055/printlink-api:<完整提交哈希>
+ghcr.io/stormspirit055/printlink-web:<完整提交哈希>
 ```
 
-构建成功后检查镜像：
+首次发布后，在 GitHub 的 Packages 页面分别打开 `printlink-api` 和 `printlink-web`，进入「Package settings > Change visibility」，将两个包设为 `Public`。仓库和镜像都不包含 `.env` 或生产密钥。完成该一次性设置后，服务器可以匿名拉取镜像。
+
+脚本自动等待并拉取镜像。也可以手工检查：
 
 ```bash
-docker image inspect printlink-api:release --format '{{.Id}} {{.Created}} {{.Architecture}}'
-docker image inspect printlink-web:release --format '{{.Id}} {{.Created}} {{.Architecture}}'
+docker pull ghcr.io/stormspirit055/printlink-api:<完整提交哈希>
+docker pull ghcr.io/stormspirit055/printlink-web:<完整提交哈希>
 ```
 
-两个镜像的架构应为 `amd64`。构建失败不会替换正在运行的容器；修复构建问题后重新执行本节命令。
-
-如果不接受构建期间的短暂停机，也可以在本地项目根目录构建并导入镜像：
-
-```bash
-npm run build:images
-docker image inspect printlink-api:release --format '{{.Architecture}}'
-docker image inspect printlink-web:release --format '{{.Architecture}}'
-docker save printlink-api:release printlink-web:release | gzip -1 | \
-  ssh root@120.26.86.139 'gzip -d | docker load'
-```
-
-本机不是 `amd64` 时，`docker-bake.hcl` 已指定 `linux/amd64`，不要删除该平台设置。
+GitHub Actions 构建失败或镜像包未公开时，脚本停在 `pull-images` 阶段，不执行迁移或替换容器。
 
 ## 7. 执行数据库迁移
 
