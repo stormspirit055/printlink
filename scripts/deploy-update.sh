@@ -76,7 +76,7 @@ main() {
     docker tag "$web_remote_image" printlink-web:release
   fi
   stage=migrate
-  compose run --rm --no-deps --no-build migrate
+  compose run --rm --no-deps migrate
   stage=replace
   compose up -d --no-deps --force-recreate --no-build api web
   stage=verify
