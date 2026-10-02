@@ -4,27 +4,27 @@
 
 ## 当前业务接口
 
-| 模块      | 接口                                                                | 权限与约束                                    |
-| --------- | ------------------------------------------------------------------- | --------------------------------------------- |
-| 健康      | `GET /health/live`、`GET /health/ready`                             | 公开                                          |
-| 短信      | `POST /api/auth/code`                                               | 每 IP 5 次/分钟，手机号冷却                   |
-| 登录/注册 | `POST /api/auth/login`                                              | 手机号、验证码；新手机号需邀请码并自动注册    |
-| 会话      | `POST /api/auth/logout`、`GET /api/me`                              | 注销需登录；`GET /me` 未登录返回 `user: null` |
-| 资料      | `PUT /api/me`                                                       | 登录用户；昵称、微信号、简介                  |
-| 地址      | `GET/POST /api/addresses`、`PUT/DELETE /api/addresses/:id`          | 登录 + 本人资源                               |
-| 配置      | `GET /api/config`                                                   | 公开只读                                      |
+| 模块      | 接口                                                                | 权限与约束                                                         |
+| --------- | ------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 健康      | `GET /health/live`、`GET /health/ready`                             | 公开                                                               |
+| 短信      | `POST /api/auth/code`                                               | 每 IP 5 次/分钟，手机号冷却                                        |
+| 登录/注册 | `POST /api/auth/login`                                              | 手机号、验证码；新手机号需邀请码并自动注册                         |
+| 会话      | `POST /api/auth/logout`、`GET /api/me`                              | 注销需登录；`GET /me` 未登录返回 `user: null`                      |
+| 资料      | `PUT /api/me`                                                       | 登录用户；昵称、微信号、简介                                       |
+| 地址      | `GET/POST /api/addresses`、`PUT/DELETE /api/addresses/:id`          | 登录 + 本人资源                                                    |
+| 配置      | `GET /api/config`                                                   | 公开只读                                                           |
 | 需求      | `GET/POST /api/demands`、`GET /api/demands/:id`                     | 创建需登录且已填写微信号；详情需登录，非公开状态仅本人和管理员可见 |
-| 本地模型  | `GET /uploads/:key`                                               | 需登录并通过关联需求权限校验；不公开上传目录 |
-| 上传凭证  | `GET /api/uploads/credentials`                                      | 登录用户；每 IP 10 次/分钟；需 OSS 存储       |
-| 审核      | `POST /api/demands/:id/review`                                      | 管理员；仅待审核需求                          |
-| 联系申请  | `POST /api/demands/:id/contact-requests`                            | 登录、非本人、需求可申请、不可重复            |
-| 本人申请  | `GET /api/demands/:id/contact-request`                              | 只返回当前用户对该需求的申请                  |
-| 申请列表  | `GET /api/demands/:id/contact-requests`                             | 仅需求所有者                                  |
-| 同意申请  | `POST /api/contact-requests/:id/approve`                            | 仅需求所有者；必须有微信号                    |
-| 打印机    | `GET/POST /api/printers`、`GET /api/printer-catalog`                | 登录用户                                      |
-| 通知      | `GET /api/notifications`、单条/全部已读                             | 登录 + 本人通知                               |
-| 实时      | `GET /api/events`                                                   | 登录；SSE + Redis pub/sub                     |
-| 后台      | `/api/admin/reviews`、`/api/admin/config`、`/api/admin/invitations` | 管理员                                        |
+| 本地模型  | `GET /uploads/:key`                                                 | 需登录并通过关联需求权限校验；不公开上传目录                       |
+| 上传凭证  | `GET /api/uploads/credentials`                                      | 登录用户；每 IP 10 次/分钟；需 OSS 存储                            |
+| 审核      | `POST /api/demands/:id/review`                                      | 管理员；仅待审核需求                                               |
+| 联系申请  | `POST /api/demands/:id/contact-requests`                            | 登录、非本人、需求可申请、不可重复                                 |
+| 本人申请  | `GET /api/demands/:id/contact-request`                              | 只返回当前用户对该需求的申请                                       |
+| 申请列表  | `GET /api/demands/:id/contact-requests`                             | 仅需求所有者                                                       |
+| 同意申请  | `POST /api/contact-requests/:id/approve`                            | 仅需求所有者；必须有微信号                                         |
+| 打印机    | `GET/POST /api/printers`、`GET /api/printer-catalog`                | 登录用户                                                           |
+| 通知      | `GET /api/notifications`、单条/全部已读                             | 登录 + 本人通知                                                    |
+| 实时      | `GET /api/events`                                                   | 登录；SSE + Redis pub/sub                                          |
+| 后台      | `/api/admin/reviews`、`/api/admin/config`、`/api/admin/invitations` | 管理员                                                             |
 
 ## 联系方式申请契约
 
@@ -99,7 +99,7 @@ GET /api/uploads/credentials
     "endpoint": "https://oss-cn-hangzhou.aliyuncs.com",
     "prefix": "models",
     "maxSizeMb": 50,
-    "allowedExtensions": [".3mf"]
+    "allowedExtensions": [".3mf", ".obj", ".glb", ".stl", ".fbx", ".usdz", ".abc", ".3ds", ".usdc", ".mtl"]
   }
 }
 ```

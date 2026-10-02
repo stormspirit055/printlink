@@ -6,7 +6,7 @@ import { ArrowLeft, Check, Copy, MessageCircleMore } from 'lucide-vue-next';
 import { api, type Demand } from '../api';
 import { useAuth } from '../composables/useAuth';
 import { feedback } from '../naive-discrete';
-import { money, statusText, tagTypeFor } from '../lib/format';
+import { statusText, tagTypeFor } from '../lib/format';
 import QueryState from '../components/QueryState.vue';
 
 // Lazy-load three.js-backed preview so the 3D library only loads on demand.
@@ -51,10 +51,6 @@ const params = computed(() => {
     ['模型数量', `${d.quantity} 件`],
     ['实体体积', `${d.volumeCm3 || 0} cm³`],
     ['识别颜色', d.colorName],
-    ['计价材料', d.materialCode],
-    ['预计耗材', `${d.estimatedWeight || 0} g`],
-    ['预计时长', `${d.estimatedHours || 0} 小时`],
-    ['心理价位', money(d.budget)],
   ] as const;
 });
 

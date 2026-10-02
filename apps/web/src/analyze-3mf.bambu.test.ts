@@ -33,7 +33,8 @@ function buildBambu3mf(): ArrayBuffer {
   <build><item objectid="1"/><item objectid="2" transform="1 0 0 0 1 0 0 0 1 30 0 0"/></build>
 </model>`;
   const files = {
-    '_rels/.rels': '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>',
+    '_rels/.rels':
+      '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>',
     '3D/3dmodel.model': model,
     'Metadata/project_settings.config': config,
   };
@@ -55,10 +56,14 @@ describe('analyze3mfBuffer (Bambu multicolor)', () => {
         if (object instanceof Mesh) meshes.push(object);
       });
       expect(meshes.some((mesh) => mesh.visible)).toBe(true);
-      expect(meshes.filter((mesh) => mesh.visible).every((mesh) => {
-        const color = (mesh.material as { color?: { getHexString(): string } }).color;
-        return color ? `#${color.getHexString()}` === part.colorHex : true;
-      })).toBe(true);
+      expect(
+        meshes
+          .filter((mesh) => mesh.visible)
+          .every((mesh) => {
+            const color = (mesh.material as { color?: { getHexString(): string } }).color;
+            return color ? `#${color.getHexString()}` === part.colorHex : true;
+          }),
+      ).toBe(true);
     });
   });
 });

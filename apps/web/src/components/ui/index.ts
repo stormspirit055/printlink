@@ -15,6 +15,7 @@ export {
   NButton,
   NInput,
   NInputNumber,
+  NSwitch,
   NSelect,
   NForm,
   NFormItem,

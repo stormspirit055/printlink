@@ -36,7 +36,7 @@ describe('UploadCredentialsService', () => {
         region: 'oss-cn-hangzhou',
         prefix: 'models',
         maxSizeMb: 50,
-        allowedExtensions: ['.3mf'],
+        allowedExtensions: ['.3mf', '.obj', '.glb', '.stl', '.fbx', '.usdz', '.abc', '.3ds', '.usdc', '.mtl'],
       },
     });
     expect(gateway.assumeRole).toHaveBeenCalledWith('printlink-upload-u1');

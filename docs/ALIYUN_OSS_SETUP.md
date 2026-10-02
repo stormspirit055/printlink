@@ -1,11 +1,11 @@
 # 阿里云 OSS 对接指南
 
-> 适用范围：印蛙 API 服务端上传 3MF，并为私有模型生成短期访问 URL
+> 适用范围：印蛙上传 3MF、OBJ、GLB、STL、FBX、USDZ、ABC、3DS、USDC 和 MTL 模型，并为私有模型生成短期访问 URL
 
 ## 1. 已实现的架构
 
 ```text
-浏览器上传 3MF
+浏览器上传模型
   -> PrintLink API 接收临时文件
   -> AliyunOssStorageAdapter 上传到私有 OSS Bucket
   -> PostgreSQL 只保存对象 key
@@ -18,7 +18,7 @@
 - `local`：本地开发，文件写入 `UPLOAD_DIR`。
 - `oss`：生产环境，文件上传到阿里云 OSS。
 
-OSS 对象默认存入 `models/` 前缀。数据库保存类似 `models/<uuid>.3mf` 的 key，不保存永久公开 URL。签名 URL 默认有效 600 秒，每次读取需求详情时重新生成。
+OSS 对象默认存入 `models/` 前缀。数据库保存类似 `models/<uuid>.<扩展名>` 的 key，不保存永久公开 URL。允许的扩展名为 `.3mf`、`.obj`、`.glb`、`.stl`、`.fbx`、`.usdz`、`.abc`、`.3ds`、`.usdc` 和 `.mtl`。签名 URL 默认有效 600 秒，每次读取需求详情时重新生成。
 
 此外 API 提供 `GET /api/uploads/credentials`（登录用户可用），实时调用阿里云 STS `AssumeRole` 签发临时上传凭证，供客户端直传 OSS 使用。凭证不落任何本地配置，只授予 `oss:PutObject` 且限定在对象前缀之下。当前 Web 前端仍走服务端代理上传；直传接入时需按下文配置 Bucket CORS。
 
@@ -119,8 +119,8 @@ AccessKey 必须通过部署平台 Secret 注入，不要写入 `.env.example`�
 1. 启动 API，确认没有 `OSS credentials are not configured` 错误。
 2. 登录后请求 `GET /api/uploads/credentials`，确认返回临时凭证和 `upload` 参数，且 `expiration` 晚于当前时间。
 3. 用返回的凭证尝试上传到 `models/` 之外的前缀，确认被 RAM 策略拒绝。
-4. 上传一个 3MF 并发布需求。
-5. 在 OSS 控制台确认 `models/` 下出现 UUID 命名的 `.3mf` 对象。
+4. 分别使用需要上线的模型格式验证上传并发布需求。
+5. 在 OSS 控制台确认 `models/` 下出现 UUID 命名、且保留原格式扩展名的对象。
 6. 确认 Bucket 中的对象不能通过无签名 URL 直接访问。
 7. 打开需求详情，确认模型能够通过带签名参数的 URL 加载。
 8. 等待签名 URL 过期，确认旧 URL 不再可用。

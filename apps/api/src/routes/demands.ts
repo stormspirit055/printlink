@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { DemandService } from '../application/backend-services.js';
 import type { AppConfig } from '../config.js';
 import { apiError, asyncRoute, parse, routeParam, type AuthMiddleware } from '../middleware/http.js';
+import { isSupportedModelName, MODEL_EXTENSION_PATTERN, MODEL_FORMAT_LABEL } from '../model-formats.js';
 
 const demandSchema = z.object({
   title: z.string().trim().min(4).max(100),
@@ -34,21 +35,27 @@ export function createDemandsRouter(service: DemandService, config: AppConfig, g
   const upload = multer({
     dest: uploadTemp,
     limits: { fileSize: config.MAX_UPLOAD_MB * 1024 * 1024, files: 1 },
-    fileFilter: (_req, file, callback) => callback(null, path.extname(file.originalname).toLowerCase() === '.3mf'),
+    fileFilter: (_req, file, callback) => callback(null, isSupportedModelName(file.originalname)),
   });
-  // Direct-upload clients generate `${prefix}/${uuid}.3mf` keys; the pattern
+  // Direct-upload clients generate `${prefix}/${uuid}.${extension}` keys; the pattern
   // keeps untrusted keys inside the model prefix and blocks path traversal.
-  const directDemandSchema = demandSchema.extend({
-    modelKey: z
-      .string()
-      .regex(
-        new RegExp(
-          `^${escapeRegex(config.OSS_PREFIX)}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.3mf$`,
+  const directDemandSchema = demandSchema
+    .extend({
+      modelKey: z
+        .string()
+        .regex(
+          new RegExp(
+            `^${escapeRegex(config.OSS_PREFIX)}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.${MODEL_EXTENSION_PATTERN}$`,
+            'i',
+          ),
+          '模型文件标识无效，请重新上传',
         ),
-        '模型文件标识无效，请重新上传',
-      ),
-    modelName: z.string().trim().min(1).max(255),
-  });
+      modelName: z.string().trim().min(1).max(255),
+    })
+    .refine((body) => path.extname(body.modelName).toLowerCase() === path.extname(body.modelKey).toLowerCase(), {
+      message: '模型文件格式不一致，请重新上传',
+      path: ['modelName'],
+    });
   router.get(
     '/',
     guards.optionalAuth,
@@ -72,8 +79,8 @@ export function createDemandsRouter(service: DemandService, config: AppConfig, g
     upload.single('model'),
     asyncRoute(async (req, res) => {
       if (req.is('multipart/form-data')) {
-        if (!req.file) return apiError(res, 400, 'MODEL_FILE_REQUIRED', '请上传 3MF 模型文件');
-        if (!req.file.size) return apiError(res, 400, 'MODEL_FILE_EMPTY', '模型文件为空，请重新选择 3MF 文件');
+        if (!req.file) return apiError(res, 400, 'MODEL_FILE_REQUIRED', `请上传 ${MODEL_FORMAT_LABEL} 模型文件`);
+        if (!req.file.size) return apiError(res, 400, 'MODEL_FILE_EMPTY', '模型文件为空，请重新选择');
         try {
           res.status(201).json(await service.create(req.user!.id, parse(demandSchema, req.body), req.file));
         } finally {

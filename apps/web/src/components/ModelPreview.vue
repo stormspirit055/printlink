@@ -51,8 +51,13 @@ function rebuild() {
   scene.children.filter((item) => item.userData.model).forEach((item) => scene?.remove(item));
   currentModel.value = props.model ? markRaw(props.model.clone(true)) : null;
   if (currentModel.value) {
-    // 3MF uses Z-up coordinates while the Three.js preview uses Y-up.
-    currentModel.value.rotation.set(-Math.PI / 2, 0, 0);
+    // 3MF and most STL exports use Z-up coordinates while Three.js uses Y-up.
+    const extension = currentModel.value.userData.modelExtension;
+    currentModel.value.rotation.set(
+      extension === '.3mf' || extension === '.stl' || extension === '.3ds' ? -Math.PI / 2 : 0,
+      0,
+      0,
+    );
     currentModel.value.position.set(0, 0, 0);
     currentModel.value.updateMatrixWorld(true);
     const modelBox = new Box3().setFromObject(currentModel.value);
@@ -165,7 +170,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="model-preview" :class="{ compact }" aria-label="三维模型预览">
     <div class="model-preview-label">
-      <span>3D PREVIEW</span><small>{{ label || '需求模型.3mf' }}</small>
+      <span>3D PREVIEW</span><small>{{ label || '需求模型' }}</small>
     </div>
     <n-button quaternary circle class="model-reset" title="重置视角" @click="fit"
       ><template #icon><RotateCcw :size="18" aria-hidden="true" /></template>

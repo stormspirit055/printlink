@@ -9,6 +9,7 @@ import { printerCatalog } from '../printer-catalog.js';
 import { avatarUrl, randomAvatarKey } from '../services/avatar-service.js';
 import type { RealtimeService } from '../services/realtime-service.js';
 import type { AppConfig } from '../config.js';
+import { MODEL_EXTENSIONS } from '../model-formats.js';
 
 function isPrismaCode(error: unknown, code: string): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === code;
@@ -341,7 +342,7 @@ export class DemandService {
     const address = await this.assertCreatable(userId, body.addressId);
     const stat = await this.storage.stat(body.modelKey);
     if (!stat) throw new AppError(400, 'MODEL_FILE_REQUIRED', '模型文件不存在，请重新上传');
-    if (stat.size <= 0) throw new AppError(400, 'MODEL_FILE_EMPTY', '模型文件为空，请重新选择 3MF 文件');
+    if (stat.size <= 0) throw new AppError(400, 'MODEL_FILE_EMPTY', '模型文件为空，请重新选择');
     const maxUploadMb = this.config?.MAX_UPLOAD_MB ?? 50;
     if (stat.size > maxUploadMb * 1024 * 1024)
       throw new AppError(400, 'MODEL_FILE_TOO_LARGE', `模型文件不能超过 ${maxUploadMb}MB`);
@@ -590,7 +591,7 @@ export class CatalogService {
   async adminConfig() {
     const [materials, colors, rules] = await Promise.all([
       this.prisma.material.findMany({ orderBy: { sortOrder: 'asc' } }),
-      this.prisma.colorOption.findMany(),
+      this.prisma.colorOption.findMany({ orderBy: { name: 'asc' } }),
       this.prisma.pricingRule.findMany(),
     ]);
     return {
@@ -647,7 +648,7 @@ export class UploadCredentialsService {
         ...(this.config.OSS_ENDPOINT ? { endpoint: this.config.OSS_ENDPOINT } : {}),
         prefix: this.config.OSS_PREFIX,
         maxSizeMb: this.config.MAX_UPLOAD_MB,
-        allowedExtensions: ['.3mf'],
+        allowedExtensions: [...MODEL_EXTENSIONS],
       },
     };
   }

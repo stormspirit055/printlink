@@ -118,7 +118,7 @@ const tagTypes = ['default', 'primary', 'info', 'success', 'warning', 'error'] a
         <n-button @click="showModal = true">Open modal</n-button>
       </div>
 
-      <n-modal v-model:show="showModal" preset="card" title="示例弹窗" class="reject-modal">
+      <n-modal v-model:show="showModal" :mask-closable="false" preset="card" title="示例弹窗" class="reject-modal">
         <p class="muted">这是一个 Naive UI NModal（preset=card）示例，含遮罩、关闭图标与 footer。</p>
         <template #footer>
           <div class="modal-actions">

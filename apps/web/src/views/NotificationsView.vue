@@ -55,6 +55,7 @@ function open(item: AppNotification) {
     title: item.title,
     content: `${item.body}\n\n${new Date(item.createdAt).toLocaleString('zh-CN')}`,
     positiveText: '知道了',
+    maskClosable: false,
   });
 }
 

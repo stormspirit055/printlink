@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { markRaw, ref, watch } from 'vue';
-import { analyze3mfBuffer, type ModelPartAnalysis } from '../analyze-3mf';
+import type { ModelPartAnalysis } from '../analyze-3mf';
+import { analyzeModelBuffer } from '../analyze-model';
 import ModelPreview from './ModelPreview.vue';
 const props = defineProps<{ url?: string | null; label?: string }>();
 const parts = ref<ModelPartAnalysis[]>([]),
@@ -19,12 +20,12 @@ watch(
       // not allow credentialed requests).
       const response = await fetch(url, { credentials: 'same-origin' });
       if (!response.ok) throw new Error('模型文件加载失败');
-      parts.value = analyze3mfBuffer(await response.arrayBuffer()).parts.map((part) => ({
+      parts.value = (await analyzeModelBuffer(await response.arrayBuffer(), props.label || url)).parts.map((part) => ({
         ...part,
         scene: markRaw(part.scene),
       }));
-    } catch (reason) {
-      error.value = reason instanceof Error ? reason.message : '模型预览加载失败';
+    } catch {
+      error.value = '当前模型无法渲染';
     } finally {
       loading.value = false;
     }
@@ -39,7 +40,7 @@ watch(
     </article>
   </section>
   <div v-else class="remote-state">
-    <strong>{{ loading ? '正在加载 3MF 模型…' : error || '暂无可预览模型' }}</strong
+    <strong>{{ loading ? '正在加载模型…' : error || '暂无可预览模型' }}</strong
     ><span v-if="label">{{ label }}</span>
   </div>
 </template>

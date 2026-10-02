@@ -5,8 +5,16 @@ import { NProgress } from 'naive-ui';
 import { Plus } from 'lucide-vue-next';
 import { api, ApiError, fetchUploadCredentials, post, type UploadCredentials } from '../api';
 import { useAuth } from '../composables/useAuth';
-import { analyze3mf, nearestColor, type ModelAnalysis } from '../analyze-3mf';
+import { nearestColor, type ModelAnalysis } from '../analyze-3mf';
+import { analyzeModel } from '../analyze-model';
 import { cityOptions, districtOptions, provinceOptions } from '../lib/china-divisions';
+import {
+  MODEL_ACCEPT,
+  MODEL_FORMAT_LABEL,
+  PREVIEWABLE_MODEL_EXTENSIONS,
+  modelExtension,
+  modelMime,
+} from '../model-formats';
 import ModelPreview from './ModelPreview.vue';
 
 type Config = {
@@ -44,6 +52,7 @@ const addressesQuery = useQuery({
 });
 const file = ref<File | null>(null);
 const analysis = ref<Analysis | null>(null);
+const previewUnavailable = ref(false);
 const analyzing = ref(false);
 const submitting = ref(false);
 const uploadPercent = ref<number | null>(null);
@@ -54,7 +63,7 @@ const budget = ref<number | null>(null);
 const addressId = ref('');
 const authorizedPublic = ref(false);
 const serverError = ref('');
-const touched = reactive({ model: false, title: false, budget: false, address: false });
+const touched = reactive({ model: false, title: false, address: false });
 const address = reactive({
   recipientName: '',
   phone: '',
@@ -67,6 +76,7 @@ const address = reactive({
 function resetDraft() {
   file.value = null;
   analysis.value = null;
+  previewUnavailable.value = false;
   analyzing.value = false;
   addressEditor.value = false;
   title.value = '';
@@ -74,7 +84,7 @@ function resetDraft() {
   budget.value = null;
   authorizedPublic.value = false;
   serverError.value = '';
-  Object.assign(touched, { model: false, title: false, budget: false, address: false });
+  Object.assign(touched, { model: false, title: false, address: false });
   Object.assign(address, {
     recipientName: '',
     phone: '',
@@ -102,9 +112,11 @@ const addressErrors = computed(() => ({
   detail: address.detail.trim().length < 5 ? '详细地址至少填写 5 个字符' : '',
 }));
 const errors = computed(() => ({
-  model: touched.model && !analysis.value ? '请上传并解析有效的 3MF 模型' : '',
+  model:
+    touched.model && (!file.value || (!analysis.value && !previewUnavailable.value))
+      ? `请上传有效的 ${MODEL_FORMAT_LABEL} 模型`
+      : '',
   title: touched.title && title.value.trim().length < 4 ? '需求标题至少填写 4 个字符' : '',
-  budget: touched.budget && (!budget.value || budget.value <= 0) ? '心理价位需大于 0 元' : '',
   address: touched.address && !addressId.value ? '请选择或新增收货地址' : '',
 }));
 watch(
@@ -119,12 +131,30 @@ async function choose(options: { file: { file?: File } }) {
   const next = options.file.file;
   touched.model = true;
   analysis.value = null;
+  previewUnavailable.value = false;
   serverError.value = '';
   if (!next) return false;
   file.value = next;
+  const extension = modelExtension(next.name);
+  if (!extension) {
+    serverError.value = `请选择 ${MODEL_FORMAT_LABEL} 格式的模型文件`;
+    return false;
+  }
+  if (!PREVIEWABLE_MODEL_EXTENSIONS.includes(extension)) {
+    previewUnavailable.value = true;
+    return false;
+  }
   analyzing.value = true;
+  let parsed: ModelAnalysis;
   try {
-    const parsed = await analyze3mf(next);
+    parsed = await analyzeModel(next);
+  } catch (error) {
+    previewUnavailable.value = true;
+    serverError.value = modelExtension(next.name) ? '' : error instanceof Error ? error.message : '模型解析失败';
+    analyzing.value = false;
+    return false;
+  }
+  try {
     const config = configQuery.data.value;
     if (!config) throw new Error('计价配置尚未加载');
     const material = config.materials.find((item) => item.code === 'PLA') || config.materials[0];
@@ -192,9 +222,12 @@ function createUploadId() {
 /** Uploads the model straight to OSS with STS credentials; returns the object key. */
 async function uploadDirectly(credentials: UploadCredentials) {
   const model = file.value!;
+  const extension = modelExtension(model.name);
+  if (!extension || !credentials.upload.allowedExtensions.includes(extension))
+    throw new Error(`请选择 ${MODEL_FORMAT_LABEL} 格式的模型文件`);
   if (model.size > credentials.upload.maxSizeMb * 1024 * 1024)
     throw new Error(`模型文件不能超过 ${credentials.upload.maxSizeMb}MB`);
-  const key = `${credentials.upload.prefix}/${createUploadId()}.3mf`;
+  const key = `${credentials.upload.prefix}/${createUploadId()}${extension}`;
   const { default: OSS } = await import('ali-oss');
   const client = new OSS({
     region: credentials.upload.region,
@@ -208,7 +241,7 @@ async function uploadDirectly(credentials: UploadCredentials) {
   });
   try {
     await client.put(key, model, {
-      mime: 'model/3mf',
+      mime: modelMime(extension),
       progress: (percentage: number) => {
         uploadPercent.value = Math.min(99, Math.round(percentage * 100));
       },
@@ -221,26 +254,30 @@ async function uploadDirectly(credentials: UploadCredentials) {
 }
 
 async function submit() {
-  Object.assign(touched, { model: true, title: true, budget: true, address: true });
-  if (Object.values(errors.value).some(Boolean) || !analysis.value || !file.value) return;
+  Object.assign(touched, { model: true, title: true, address: true });
+  if (Object.values(errors.value).some(Boolean) || (!analysis.value && !previewUnavailable.value) || !file.value)
+    return;
   submitting.value = true;
   serverError.value = '';
   uploadPercent.value = null;
   try {
     const row = analysis.value;
+    const config = configQuery.data.value;
+    const fallbackMaterial = config?.materials.find((item) => item.code === 'PLA') || config?.materials[0];
+    if (!row && !fallbackMaterial) throw new Error('平台配置尚未加载，请稍后重试');
     const fields = {
       title: title.value.trim(),
       description: description.value.trim(),
-      materialCode: row.materialCode,
-      colorName: row.colorName,
-      quantity: row.quantity,
-      sizeX: row.sizeX,
-      sizeY: row.sizeY,
-      sizeZ: row.sizeZ,
-      volumeCm3: row.volumeCm3,
-      estimatedWeight: row.estimatedWeight,
-      estimatedHours: row.estimatedHours,
-      budget: budget.value!,
+      materialCode: row?.materialCode || fallbackMaterial!.code,
+      colorName: row?.colorName || '未识别',
+      quantity: row?.quantity || 1,
+      sizeX: row?.sizeX || 0.01,
+      sizeY: row?.sizeY || 0.01,
+      sizeZ: row?.sizeZ || 0.01,
+      volumeCm3: row?.volumeCm3 || 0.01,
+      estimatedWeight: row?.estimatedWeight || 0,
+      estimatedHours: row?.estimatedHours || 0,
+      budget: budget.value || Number(config?.rules.minimum_order?.value || 1),
       addressId: addressId.value,
       authorizedPublic: authorizedPublic.value,
     };
@@ -279,25 +316,30 @@ async function submit() {
 <template>
   <n-modal
     :show="show"
+    :mask-closable="false"
     preset="card"
     title="发布打印需求"
     class="publish-modal"
     @update:show="emit('update:show', $event)"
   >
-    <p class="muted section-intro">上传模型，自动解析参数并估算预算。</p>
+    <p class="muted section-intro">上传模型，确认尺寸并补充打印要求。</p>
     <n-alert type="info" class="contact-notice">
       接单方会先申请你的微信联系方式；只有你同意后，平台才会通过通知向对方发送微信号。
     </n-alert>
     <n-form label-placement="top">
-      <n-form-item
-        label="3MF 模型文件"
-        :feedback="errors.model"
-        :validation-status="errors.model ? 'error' : undefined"
-      >
-        <n-upload accept=".3mf" :default-upload="false" :show-file-list="false" :on-before-upload="choose">
+      <n-form-item label="模型文件" :feedback="errors.model" :validation-status="errors.model ? 'error' : undefined">
+        <n-upload :accept="MODEL_ACCEPT" :default-upload="false" :show-file-list="false" :on-before-upload="choose">
           <n-upload-dragger class="upload-zone">
-            <strong>{{ analyzing ? '正在解析模型…' : analysis ? '模型解析完成' : '选择 3MF 模型' }}</strong>
-            <small>{{ analysis ? '点击更换文件' : '仅支持标准 .3mf 文件' }}</small>
+            <strong>{{
+              analyzing
+                ? '正在解析模型…'
+                : analysis
+                  ? '模型解析完成'
+                  : previewUnavailable
+                    ? '模型文件已选择'
+                    : '选择模型文件'
+            }}</strong>
+            <small>{{ analysis || previewUnavailable ? '点击更换文件' : `支持 ${MODEL_FORMAT_LABEL}` }}</small>
           </n-upload-dragger>
         </n-upload>
       </n-form-item>
@@ -316,6 +358,10 @@ async function submit() {
           </dl>
         </article>
       </section>
+      <div v-else-if="previewUnavailable" class="preview-unavailable" role="status">
+        <strong>当前模型无法渲染</strong>
+        <span>文件仍可正常上传并提交需求</span>
+      </div>
       <div v-if="analysis" class="analysis-grid">
         <div
           v-for="item in [
@@ -323,10 +369,6 @@ async function submit() {
             ['模型数量', `${analysis.quantity} 件`],
             ['实体体积', `${analysis.volumeCm3} cm³`],
             ['识别颜色', analysis.colorName],
-            ['计价材料', analysis.materialCode],
-            ['预计耗材', `${analysis.estimatedWeight} g`],
-            ['预计时长', `${analysis.estimatedHours} 小时`],
-            ['平台参考价', `¥${analysis.budget.toFixed(2)}`],
           ]"
           :key="item[0]"
         >
@@ -334,20 +376,6 @@ async function submit() {
           ><strong>{{ item[1] }}</strong>
         </div>
       </div>
-      <n-form-item
-        v-if="analysis"
-        label="心理价位（元）"
-        :feedback="errors.budget || `参考价 ¥${analysis.budget.toFixed(2)}，可根据预算调整。`"
-        :validation-status="errors.budget ? 'error' : undefined"
-      >
-        <n-input-number
-          v-model:value="budget"
-          :min="0"
-          :precision="2"
-          style="width: 100%"
-          @blur="touched.budget = true"
-        />
-      </n-form-item>
       <n-form-item label="需求标题" :feedback="errors.title" :validation-status="errors.title ? 'error' : undefined">
         <n-input v-model:value="title" placeholder="模型用途或零件名称" @blur="touched.title = true" />
       </n-form-item>
@@ -400,7 +428,7 @@ async function submit() {
       </div></template
     >
   </n-modal>
-  <n-modal v-model:show="addressEditor" preset="card" title="新增收货地址" class="address-modal">
+  <n-modal v-model:show="addressEditor" :mask-closable="false" preset="card" title="新增收货地址" class="address-modal">
     <n-form label-placement="top">
       <div class="two-cols">
         <n-form-item
@@ -479,6 +507,21 @@ async function submit() {
   padding: var(--space-4);
   border: 1px solid var(--color-border);
   background: var(--color-surface-raised);
+}
+.preview-unavailable {
+  min-height: 8rem;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+.preview-unavailable span {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
 }
 .part-previews {
   display: grid;

@@ -14,6 +14,7 @@
   --text-xl: 1.25rem;
   --text-2xl: 1.5rem;
   --text-3xl: 1.75rem;
+  --text-display: 3.5rem;
   --leading-tight: 1.25;
   --leading-normal: 1.5;
   --leading-relaxed: 1.7;
@@ -52,6 +53,8 @@
   --color-primary-active: #32c889;
   --color-primary-strong: #1d8e65;
   --color-on-primary: #06120d;
+  --color-on-image: #ffffff;
+  --color-on-image-muted: rgb(255 255 255 / 0.76);
   --color-info: #67a7ff;
   --color-warning: #ffc857;
   --color-danger: #ff6b6b;

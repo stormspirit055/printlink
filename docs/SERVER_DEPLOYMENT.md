@@ -51,7 +51,7 @@ rsync -az --delete \
 
 `--delete` 会删除服务器部署目录中本次源码不再包含的文件。生产配置、数据和备份应保存在排除项或部署目录之外。
 
-此上传方式不包含 Git 元数据。首次部署完成后，如需在服务器通过 `git pull` 更新版本，先执行 [版本迭代部署手册](./ITERATIVE_DEPLOYMENT.md) 的「一次性准备 Git 工作区」。服务器宿主机不需要安装 Node.js。
+此上传方式不包含 Git 元数据。首次部署完成后，如需在服务器通过 `git pull` 更新版本，应先将 `/opt/printlink` 转换为可访问远端仓库的 Git 工作区，再按 [版本迭代部署手册](./ITERATIVE_DEPLOYMENT.md) 操作。服务器宿主机不需要安装 Node.js。
 
 ## 3. 创建生产配置
 

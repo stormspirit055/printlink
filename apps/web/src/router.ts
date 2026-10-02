@@ -7,7 +7,8 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: () => import('./views/MainLayout.vue'),
     children: [
-      { path: '', name: 'hall', component: () => import('./views/HallView.vue') },
+      { path: '', name: 'home', component: () => import('./views/HomeView.vue') },
+      { path: 'hall', name: 'hall', component: () => import('./views/HallView.vue') },
       { path: 'workspace', name: 'workspace', component: () => import('./views/WorkspaceView.vue') },
       { path: 'printers', name: 'printers', component: () => import('./views/PrintersView.vue') },
       { path: 'notifications', name: 'notifications', component: () => import('./views/NotificationsView.vue') },
@@ -25,8 +26,8 @@ export const router = createRouter({ history: createWebHistory(), routes, scroll
 router.beforeEach(async (to) => {
   if (to.name === 'dev') return true;
   const user = await ensureAuth();
-  if (to.name === 'login') return user ? { name: 'hall' } : true;
+  if (to.name === 'login') return user ? { name: 'home' } : true;
   if (!user) return { name: 'login' };
-  if (to.name === 'admin' && !user.isAdmin) return { name: 'hall' };
+  if (to.name === 'admin' && !user.isAdmin) return { name: 'home' };
   return true;
 });

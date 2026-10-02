@@ -8,9 +8,10 @@ import { useAuth } from '../composables/useAuth';
 import { useTheme } from '../hooks/use-theme';
 import { avatarUrlFor, FALLBACK_AVATAR } from '../composables/useAvatar';
 import { useRealtime } from '../hooks/use-realtime';
+import { providePublishDemand } from '../composables/usePublishDemand';
 import BrandMark from '../components/BrandMark.vue';
 import NotificationCenter from '../components/NotificationCenter.vue';
-// Lazy-load: PublishDemandModal pulls in 3MF parsing + three.js.
+// Lazy-load: PublishDemandModal pulls in model parsers + three.js.
 const PublishDemandModal = defineAsyncComponent(() => import('../components/PublishDemandModal.vue'));
 
 const route = useRoute();
@@ -25,9 +26,9 @@ useRealtime(() => !!user.value);
 
 const showPublish = ref(false);
 const navItems = [
+  { k: 'home', l: '首页' },
   { k: 'hall', l: '需求大厅' },
   { k: 'workspace', l: '工作台' },
-  { k: 'printers', l: '打印设备' },
   { k: 'notifications', l: '消息通知' },
 ] as const;
 
@@ -44,12 +45,15 @@ function openPublish() {
       content: '微信号用于需求通过审核后与打印方建立联系。是否现在前往个人信息填写？',
       positiveText: '去填写',
       negativeText: '暂不填写',
+      maskClosable: false,
       onPositiveClick: () => router.push({ name: 'profile' }),
     });
     return;
   }
   showPublish.value = true;
 }
+
+providePublishDemand(openPublish);
 
 async function onLogout() {
   await logout();

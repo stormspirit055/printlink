@@ -80,6 +80,7 @@ async function save() {
 <template>
   <n-modal
     :show="show"
+    :mask-closable="false"
     preset="card"
     title="录入打印设备"
     class="printer-modal"

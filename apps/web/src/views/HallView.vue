@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router';
 import { Box, Search } from 'lucide-vue-next';
 import { api, type Demand } from '../api';
 import { useAuth } from '../composables/useAuth';
-import { money, statusText, tagTypeFor } from '../lib/format';
+import { statusText, tagTypeFor } from '../lib/format';
 import QueryState from '../components/QueryState.vue';
 
 const router = useRouter();
@@ -20,7 +20,7 @@ const demandsQuery = useQuery({
 
 const demands = computed(() =>
   (demandsQuery.data.value || []).filter((d) =>
-    [d.title, d.description, d.materialCode, d.colorName, d.nickname]
+    [d.title, d.description, d.colorName, d.nickname]
       .join(' ')
       .toLowerCase()
       .includes(search.value.trim().toLowerCase()),
@@ -35,7 +35,7 @@ function open(id: string) {
 
 <template>
   <section>
-    <n-input v-model:value="search" size="large" placeholder="搜索需求或材料" clearable class="search-box">
+    <n-input v-model:value="search" size="large" placeholder="搜索需求" clearable class="search-box">
       <template #prefix><Search :size="16" aria-hidden="true" /></template>
     </n-input>
     <QueryState :query="demandsQuery" empty-text="暂无开放需求" skeleton="cards">
@@ -53,7 +53,7 @@ function open(id: string) {
               statusText(d.status)
             }}</n-tag>
             <Box :size="56" :stroke-width="1.2" class="cube" aria-hidden="true" />
-            <small>{{ d.modelName || '3MF MODEL' }}</small>
+            <small>{{ d.modelName || '3D MODEL' }}</small>
           </div>
           <div class="demand-body">
             <div class="meta-line">
@@ -63,12 +63,10 @@ function open(id: string) {
             <h3>{{ d.title }}</h3>
             <p>{{ d.description || '无补充要求' }}</p>
             <div class="specs">
-              <span>{{ d.materialCode }}</span>
               <span>{{ d.colorName }}</span>
               <span>{{ d.sizeX }}×{{ d.sizeY }}×{{ d.sizeZ }} mm</span>
             </div>
             <div class="demand-foot">
-              <b>{{ money(d.budget) }}</b>
               <small>{{ d.acceptCount || 0 }} 个响应 ›</small>
             </div>
           </div>

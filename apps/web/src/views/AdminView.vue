@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref } from 'vue';
+import { computed, defineAsyncComponent, reactive, ref } from 'vue';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { useRouter } from 'vue-router';
+import type { FormInst, FormRules } from 'naive-ui';
 import {
   ArrowLeft,
   Boxes,
@@ -11,29 +12,33 @@ import {
   LogOut,
   Moon,
   Palette,
+  Pencil,
   Sun,
   Ticket,
   UserRound,
 } from 'lucide-vue-next';
 import { api, type Demand, type InvitationCode } from '../api';
-import type { AdminConfig } from '../admin/types';
+import type { AdminColor, AdminConfig, AdminMaterial, AdminRule } from '../admin/types';
 import { useAuth } from '../composables/useAuth';
 import { useTheme } from '../hooks/use-theme';
 import { avatarUrlFor, FALLBACK_AVATAR } from '../composables/useAvatar';
 import { feedback } from '../naive-discrete';
-import { money } from '../lib/format';
 import BrandMark from '../components/BrandMark.vue';
 import QueryState from '../components/QueryState.vue';
 
 type Review = Demand & { modelUrl?: string | null };
-type ConfigItem = {
-  id?: string;
-  key?: string;
-  name?: string;
-  label?: string;
-  pricePerGram?: number;
-  value?: number;
-  multiplier?: number;
+type EditableConfigSection = 'materials' | 'rules' | 'colors';
+type EditableConfigItem = AdminMaterial | AdminRule | AdminColor;
+type ConfigCard = {
+  kind: EditableConfigSection;
+  identifier: string;
+  title: string;
+  value: number;
+  unit: string;
+  detail: string;
+  active?: boolean;
+  hex?: string;
+  raw: EditableConfigItem;
 };
 
 const RemoteModelPreview = defineAsyncComponent(() => import('../components/RemoteModelPreview.vue'));
@@ -51,6 +56,21 @@ const inviteModalShow = ref(false);
 const newMaxUses = ref(10);
 const newExpiresAt = ref<number | null>(null);
 const creating = ref(false);
+const configEditorShow = ref(false);
+const configEditorForm = ref<FormInst | null>(null);
+const editingKind = ref<EditableConfigSection | null>(null);
+const editingIdentifier = ref('');
+const savingConfig = ref(false);
+const configForm = reactive({
+  name: '',
+  pricePerGram: null as number | null,
+  marketRange: '',
+  active: true,
+  value: null as number | null,
+  unit: '',
+  hex: '',
+  multiplier: null as number | null,
+});
 
 const avatarSrc = computed(() => avatarUrlFor(user.value));
 const maskedPhone = computed(() => {
@@ -79,12 +99,46 @@ const invitationsQuery = useQuery({
   enabled: computed(() => !!user.value?.isAdmin),
 });
 
-const configItems = computed<ConfigItem[]>(() => {
+const configItems = computed<ConfigCard[]>(() => {
   const cfg = adminConfigQuery.data.value;
   if (!cfg) return [];
-  if (section.value === 'materials') return cfg.materials;
-  if (section.value === 'rules') return cfg.rules;
-  return cfg.colors;
+  if (section.value === 'materials') {
+    return cfg.materials.map((item) => ({
+      kind: 'materials',
+      identifier: item.id,
+      title: item.name,
+      value: item.pricePerGram,
+      unit: '元/克',
+      detail: item.marketRange || '未设置市场参考区间',
+      active: item.active,
+      raw: item,
+    }));
+  }
+  if (section.value === 'rules') {
+    return cfg.rules.map((item) => ({
+      kind: 'rules',
+      identifier: item.key,
+      title: item.label,
+      value: item.value,
+      unit: item.unit,
+      detail: item.description || `规则标识：${item.key}`,
+      raw: item,
+    }));
+  }
+  if (section.value === 'colors') {
+    return cfg.colors.map((item) => ({
+      kind: 'colors',
+      identifier: item.id,
+      title: item.name,
+      value: item.multiplier,
+      unit: '倍',
+      detail: item.hex.toUpperCase(),
+      active: item.active,
+      hex: item.hex,
+      raw: item,
+    }));
+  }
+  return [];
 });
 
 const navItems = [
@@ -95,10 +149,55 @@ const navItems = [
   { k: 'invitations', l: '邀请码管理', icon: Ticket },
 ] as const;
 
-const configUnit = computed(() => {
-  if (section.value === 'materials') return '元/克';
-  if (section.value === 'colors') return '×';
-  return '';
+const configHeading = computed(() => {
+  if (section.value === 'materials') {
+    return { title: '材料配置', description: '维护材料展示名称、参考克价和可用状态。' };
+  }
+  if (section.value === 'rules') {
+    return { title: '计价规则', description: '调整平台报价计算使用的费率和固定费用。' };
+  }
+  return { title: '颜色配置', description: '维护可选颜色、展示色值和价格倍率。' };
+});
+
+const configEditorTitle = computed(() => {
+  if (editingKind.value === 'materials') return '编辑材料配置';
+  if (editingKind.value === 'rules') return '编辑计价规则';
+  return '编辑颜色配置';
+});
+
+const positiveNumberRule = {
+  validator: (_rule: unknown, value: number | null) => typeof value === 'number' && Number.isFinite(value) && value > 0,
+  message: '请输入大于 0 的数值',
+  trigger: ['input', 'blur'],
+};
+
+const configFormRules = computed<FormRules>(() => {
+  if (editingKind.value === 'materials') {
+    return {
+      name: { required: true, message: '请输入材料名称', trigger: ['input', 'blur'] },
+      pricePerGram: positiveNumberRule,
+      marketRange: { max: 80, message: '市场参考区间不能超过 80 个字符', trigger: ['input', 'blur'] },
+    };
+  }
+  if (editingKind.value === 'rules') {
+    return {
+      value: {
+        validator: (_rule: unknown, value: number | null) =>
+          typeof value === 'number' && Number.isFinite(value) && value >= 0,
+        message: '请输入不小于 0 的数值',
+        trigger: ['input', 'blur'],
+      },
+    };
+  }
+  return {
+    name: { required: true, message: '请输入颜色名称', trigger: ['input', 'blur'] },
+    hex: {
+      validator: (_rule: unknown, value: string) => /^#[0-9a-fA-F]{6}$/.test(value),
+      message: '请输入 6 位十六进制色值，例如 #4BE0A0',
+      trigger: ['input', 'blur'],
+    },
+    multiplier: positiveNumberRule,
+  };
 });
 
 const detailParams = computed(() => {
@@ -109,16 +208,82 @@ const detailParams = computed(() => {
     ['模型数量', `${r.quantity} 件`],
     ['实体体积', `${r.volumeCm3 || 0} cm³`],
     ['识别颜色', r.colorName],
-    ['计价材料', r.materialCode],
-    ['预计耗材', `${r.estimatedWeight || 0} g`],
-    ['预计时长', `${r.estimatedHours || 0} 小时`],
-    ['平台参考价', money(r.budget)],
   ] as const;
 });
 
 function selectSection(k: typeof section.value) {
   section.value = k;
   adminDetail.value = null;
+}
+
+function openConfigEditor(card: ConfigCard) {
+  editingKind.value = card.kind;
+  editingIdentifier.value = card.identifier;
+  if (card.kind === 'materials') {
+    const item = card.raw as AdminMaterial;
+    Object.assign(configForm, {
+      name: item.name,
+      pricePerGram: item.pricePerGram,
+      marketRange: item.marketRange,
+      active: item.active,
+    });
+  } else if (card.kind === 'rules') {
+    const item = card.raw as AdminRule;
+    Object.assign(configForm, { value: item.value, unit: item.unit });
+  } else {
+    const item = card.raw as AdminColor;
+    Object.assign(configForm, {
+      name: item.name,
+      hex: item.hex.toUpperCase(),
+      multiplier: item.multiplier,
+      active: item.active,
+    });
+  }
+  configEditorShow.value = true;
+}
+
+async function saveConfig() {
+  if (!editingKind.value) return;
+  try {
+    await configEditorForm.value?.validate();
+  } catch {
+    return;
+  }
+
+  const kind = editingKind.value;
+  let body: Record<string, unknown>;
+  if (kind === 'materials') {
+    body = {
+      name: configForm.name.trim(),
+      pricePerGram: configForm.pricePerGram,
+      marketRange: configForm.marketRange.trim(),
+      active: configForm.active,
+    };
+  } else if (kind === 'rules') {
+    body = { value: configForm.value };
+  } else {
+    body = {
+      name: configForm.name.trim(),
+      hex: configForm.hex.toUpperCase(),
+      multiplier: configForm.multiplier,
+      active: configForm.active,
+    };
+  }
+
+  savingConfig.value = true;
+  try {
+    await api(`/api/admin/${kind}/${encodeURIComponent(editingIdentifier.value)}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+    await queryClient.invalidateQueries({ queryKey: ['admin-config'] });
+    configEditorShow.value = false;
+    feedback.success('配置已更新');
+  } catch (e) {
+    feedback.error(e instanceof Error ? e.message : '保存失败');
+  } finally {
+    savingConfig.value = false;
+  }
 }
 
 function startReject() {
@@ -311,9 +476,7 @@ function disableInvite(inv: InvitationCode) {
                     <h3>{{ r.title }}</h3>
                     <p>{{ r.description || '无补充要求' }}</p>
                     <div class="specs">
-                      <span>{{ r.materialCode }}</span>
                       <span>{{ r.colorName }}</span>
-                      <span>{{ money(r.budget) }}</span>
                     </div>
                   </div>
                   <b>›</b>
@@ -379,18 +542,148 @@ function disableInvite(inv: InvitationCode) {
           </QueryState>
         </template>
 
-        <div v-else class="config-grid">
-          <article v-for="item in configItems" :key="item.id || item.key" class="panel config-card">
-            <span class="config-label">{{ item.name || item.label || item.key }}</span>
-            <b class="config-value">
-              {{ item.pricePerGram ?? item.value ?? item.multiplier }}<small v-if="configUnit">{{ configUnit }}</small>
-            </b>
-          </article>
-        </div>
+        <template v-else>
+          <div class="section-head config-section-head">
+            <div>
+              <h2>{{ configHeading.title }}</h2>
+              <p>{{ configHeading.description }}</p>
+            </div>
+          </div>
+          <QueryState :query="adminConfigQuery" empty-text="暂无配置" skeleton="list">
+            <div class="config-grid">
+              <article v-for="item in configItems" :key="item.identifier" class="panel config-card">
+                <div class="config-card-head">
+                  <div class="config-title-row">
+                    <span
+                      v-if="item.hex"
+                      class="color-swatch"
+                      :style="{ backgroundColor: item.hex }"
+                      aria-hidden="true"
+                    ></span>
+                    <span class="config-label">{{ item.title }}</span>
+                    <n-tag v-if="item.active !== undefined" :type="item.active ? 'success' : 'default'" size="small">
+                      {{ item.active ? '已启用' : '已停用' }}
+                    </n-tag>
+                  </div>
+                  <n-button
+                    quaternary
+                    circle
+                    size="small"
+                    :title="`编辑${item.title}`"
+                    :aria-label="`编辑${item.title}`"
+                    @click="openConfigEditor(item)"
+                  >
+                    <template #icon><Pencil :size="16" aria-hidden="true" /></template>
+                  </n-button>
+                </div>
+                <b class="config-value"
+                  >{{ item.value }}<small>{{ item.unit }}</small></b
+                >
+                <span class="config-detail">{{ item.detail }}</span>
+              </article>
+            </div>
+          </QueryState>
+        </template>
       </main>
     </div>
 
-    <n-modal v-model:show="rejectShow" preset="card" title="确认驳回需求" class="reject-modal">
+    <n-modal
+      v-model:show="configEditorShow"
+      :mask-closable="false"
+      preset="card"
+      :title="configEditorTitle"
+      class="config-editor-modal"
+      :style="{ width: 'min(30rem, 94vw)', maxHeight: '92vh', overflow: 'auto' }"
+    >
+      <n-form
+        ref="configEditorForm"
+        :model="configForm"
+        :rules="configFormRules"
+        label-placement="top"
+        @submit.prevent="saveConfig"
+      >
+        <template v-if="editingKind === 'materials'">
+          <n-form-item label="材料名称" path="name">
+            <n-input v-model:value="configForm.name" maxlength="80" placeholder="例如 PLA / PLA+" />
+          </n-form-item>
+          <n-form-item label="材料单价" path="pricePerGram">
+            <n-input-number
+              v-model:value="configForm.pricePerGram"
+              :min="0.0001"
+              :precision="4"
+              :step="0.01"
+              class="config-number-input"
+            >
+              <template #suffix>元/克</template>
+            </n-input-number>
+          </n-form-item>
+          <n-form-item label="市场参考区间" path="marketRange">
+            <n-input v-model:value="configForm.marketRange" maxlength="80" placeholder="例如 ¥45-85/kg" />
+          </n-form-item>
+          <n-form-item label="可用状态">
+            <n-switch v-model:value="configForm.active">
+              <template #checked>启用</template>
+              <template #unchecked>停用</template>
+            </n-switch>
+          </n-form-item>
+        </template>
+
+        <template v-else-if="editingKind === 'rules'">
+          <n-form-item label="规则数值" path="value">
+            <n-input-number
+              v-model:value="configForm.value"
+              :min="0"
+              :precision="4"
+              :step="0.1"
+              class="config-number-input"
+            >
+              <template #suffix>{{ configForm.unit }}</template>
+            </n-input-number>
+          </n-form-item>
+        </template>
+
+        <template v-else-if="editingKind === 'colors'">
+          <n-form-item label="颜色名称" path="name">
+            <n-input v-model:value="configForm.name" maxlength="40" placeholder="例如 荧光绿" />
+          </n-form-item>
+          <n-form-item label="颜色色值" path="hex">
+            <div class="color-field-row">
+              <span
+                class="color-preview"
+                :style="{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(configForm.hex) ? configForm.hex : 'transparent' }"
+                aria-hidden="true"
+              ></span>
+              <n-input v-model:value="configForm.hex" maxlength="7" placeholder="#4BE0A0" />
+            </div>
+          </n-form-item>
+          <n-form-item label="价格倍率" path="multiplier">
+            <n-input-number
+              v-model:value="configForm.multiplier"
+              :min="0.0001"
+              :precision="4"
+              :step="0.05"
+              class="config-number-input"
+            >
+              <template #suffix>倍</template>
+            </n-input-number>
+          </n-form-item>
+          <n-form-item label="可用状态">
+            <n-switch v-model:value="configForm.active">
+              <template #checked>启用</template>
+              <template #unchecked>停用</template>
+            </n-switch>
+          </n-form-item>
+        </template>
+      </n-form>
+      <template #footer>
+        <div class="modal-actions">
+          <n-button :disabled="savingConfig" @click="configEditorShow = false">取消</n-button>
+          <n-button type="primary" :loading="savingConfig" @click="saveConfig">保存</n-button>
+        </div>
+      </template>
+    </n-modal>
+
+    <n-modal v-model:show="rejectShow" :mask-closable="false" preset="card" title="确认驳回需求" class="reject-modal">
       <n-input
         v-model:value="rejectReason"
         type="textarea"
@@ -407,7 +700,13 @@ function disableInvite(inv: InvitationCode) {
       </template>
     </n-modal>
 
-    <n-modal v-model:show="inviteModalShow" preset="card" title="生成邀请码" class="invite-modal">
+    <n-modal
+      v-model:show="inviteModalShow"
+      :mask-closable="false"
+      preset="card"
+      title="生成邀请码"
+      class="invite-modal"
+    >
       <n-form label-placement="top">
         <n-form-item label="可邀请次数">
           <n-input-number v-model:value="newMaxUses" :min="1" :max="1000" />
@@ -445,6 +744,60 @@ function disableInvite(inv: InvitationCode) {
   font-size: var(--text-xl);
   font-weight: var(--weight-semibold);
   color: var(--color-text);
+}
+.config-section-head p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+.config-card-head,
+.config-title-row,
+.color-field-row {
+  display: flex;
+  align-items: center;
+}
+.config-card-head {
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.config-title-row,
+.color-field-row {
+  gap: var(--space-2);
+  min-width: 0;
+}
+.config-title-row .config-label {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.config-detail {
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+.color-swatch,
+.color-preview {
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-canvas) 20%, transparent);
+}
+.color-swatch {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+.color-preview {
+  width: var(--control-height-md);
+  height: var(--control-height-md);
+}
+.color-field-row,
+.color-field-row .n-input,
+.config-number-input {
+  width: 100%;
 }
 .invite-grid {
   display: grid;

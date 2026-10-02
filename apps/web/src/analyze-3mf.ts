@@ -1,4 +1,15 @@
-import { Box3, BufferGeometry, Color, Group, Material, Mesh, MeshStandardMaterial, Matrix4, Object3D, Vector3 } from 'three';
+import {
+  Box3,
+  BufferGeometry,
+  Color,
+  Group,
+  Material,
+  Mesh,
+  MeshStandardMaterial,
+  Matrix4,
+  Object3D,
+  Vector3,
+} from 'three';
 import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
@@ -125,8 +136,7 @@ function normalizeBambu3mf(buffer: ArrayBuffer): ArrayBuffer {
       // pindex: the object's own extruder color (1-based -> 0-based) when known,
       // otherwise the dominant face_property so unpainted faces still resolve.
       const extruder = extruderByPathObject[path]?.[id];
-      const pindex = extruder !== undefined ? extruder - 1
-        : faceValues.length ? Math.min(...faceValues) - offset : 0;
+      const pindex = extruder !== undefined ? extruder - 1 : faceValues.length ? Math.min(...faceValues) - offset : 0;
       return `<object${attrs} pid="9000" pindex="${pindex}"${slash}>`;
     });
     xml = xml.replace(/face_property\s*=\s*"(\d+)"/g, (_match, value) => `p1="${parseInt(value, 10) - offset}"`);
@@ -234,7 +244,10 @@ function makeMatte(group: Object3D) {
     const oldMats = Array.isArray(object.material) ? object.material : [object.material];
     const matte = oldMats.map((material) => {
       const source = material as Material & {
-        color: Color; opacity: number; transparent: boolean; name: string;
+        color: Color;
+        opacity: number;
+        transparent: boolean;
+        name: string;
       };
       return new MeshStandardMaterial({
         color: source.color.clone(),
@@ -252,13 +265,19 @@ function makeMatte(group: Object3D) {
 
 function groupByColor(items: Object3D[]): Object3D[] {
   const colors = new Set<string>();
-  items.forEach((item) => item.traverse((object) => { if (object instanceof Mesh) colors.add(meshColor(object)); }));
+  items.forEach((item) =>
+    item.traverse((object) => {
+      if (object instanceof Mesh) colors.add(meshColor(object));
+    }),
+  );
   if (colors.size <= 1) return items;
   return [...colors].map((color) => {
     const root = new Group();
     items.forEach((item) => {
       const clone = item.clone(true);
-      clone.traverse((object) => { if (object instanceof Mesh) object.visible = meshColor(object) === color; });
+      clone.traverse((object) => {
+        if (object instanceof Mesh) object.visible = meshColor(object) === color;
+      });
       root.add(clone);
     });
     root.name = color === 'default' ? '默认颜色' : color;
@@ -274,7 +293,11 @@ function groupByColor(items: Object3D[]): Object3D[] {
  */
 function readBambuMeta(buffer: ArrayBuffer): { colors: string[]; buildExtruders: (number | null)[] | null } {
   let files: Record<string, Uint8Array>;
-  try { files = unzipSync(new Uint8Array(buffer)); } catch { return { colors: [], buildExtruders: null }; }
+  try {
+    files = unzipSync(new Uint8Array(buffer));
+  } catch {
+    return { colors: [], buildExtruders: null };
+  }
   const config = files['Metadata/project_settings.config'];
   if (!config) return { colors: [], buildExtruders: null };
   const match = strFromU8(config).match(/"filament_colour"\s*:\s*\[([\s\S]*?)\]/);
@@ -283,7 +306,9 @@ function readBambuMeta(buffer: ArrayBuffer): { colors: string[]; buildExtruders:
   const settings = files['Metadata/model_settings.config'];
   if (!settings) return { colors, buildExtruders: null };
   const extruderByObject: Record<string, number> = {};
-  for (const block of strFromU8(settings).split(/<object\s+id=/).slice(1)) {
+  for (const block of strFromU8(settings)
+    .split(/<object\s+id=/)
+    .slice(1)) {
     const id = block.match(/^"(\d+)"/)?.[1];
     const extruder = block.match(/key="extruder"\s+value="(\d+)"/)?.[1];
     if (id && extruder) extruderByObject[id] = parseInt(extruder, 10);
@@ -291,12 +316,17 @@ function readBambuMeta(buffer: ArrayBuffer): { colors: string[]; buildExtruders:
   if (!Object.keys(extruderByObject).length) return { colors, buildExtruders: null };
   const modelFile = Object.keys(files).find((path) => path === '3D/3dmodel.model' || path.endsWith('/3dmodel.model'));
   if (!modelFile) return { colors, buildExtruders: null };
-  const buildObjectIds = [...strFromU8(files[modelFile]).matchAll(/<item\s+[^>]*objectid="(\d+)"/g)].map((item) => item[1]);
+  const buildObjectIds = [...strFromU8(files[modelFile]).matchAll(/<item\s+[^>]*objectid="(\d+)"/g)].map(
+    (item) => item[1],
+  );
   if (!buildObjectIds.length) return { colors, buildExtruders: null };
   const buildExtruders = buildObjectIds.map((id) => extruderByObject[id] ?? null);
   // Only group when there is more than one extruder in use; a single-extruder
   // file stays as one pile per build item.
-  return { colors, buildExtruders: new Set(buildExtruders.filter((e): e is number => e !== null)).size > 1 ? buildExtruders : null };
+  return {
+    colors,
+    buildExtruders: new Set(buildExtruders.filter((e): e is number => e !== null)).size > 1 ? buildExtruders : null,
+  };
 }
 
 /**

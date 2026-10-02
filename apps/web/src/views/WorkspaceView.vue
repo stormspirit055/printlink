@@ -6,7 +6,7 @@ import { NTag, type DataTableColumns } from 'naive-ui';
 import { PackageOpen } from 'lucide-vue-next';
 import { api, type Demand } from '../api';
 import { useAuth } from '../composables/useAuth';
-import { money, statusText, tagTypeFor } from '../lib/format';
+import { statusText, tagTypeFor } from '../lib/format';
 import QueryState from '../components/QueryState.vue';
 
 const router = useRouter();
@@ -32,18 +32,7 @@ const columns: DataTableColumns<Demand> = [
         { default: () => statusText(row.status) },
       ),
   },
-  { title: '预算', key: 'budget', render: (row) => money(row.budget) },
   { title: '接单意向', key: 'acceptCount', render: (row) => String(row.acceptCount || 0) },
-  {
-    title: '预算偏低',
-    key: 'raiseCount',
-    render: (row) =>
-      h(
-        NTag,
-        { type: row.raiseCount ? 'warning' : 'default', size: 'small', round: true, bordered: true },
-        { default: () => String(row.raiseCount || 0) },
-      ),
-  },
   { title: '发布时间', key: 'createdAt', render: (row) => date(row.createdAt) },
 ];
 

@@ -17,6 +17,7 @@ import { createNotificationsRouter } from './routes/notifications.js';
 import { createPrintersRouter } from './routes/printers.js';
 import { createContactRequestsRouter } from './routes/quotes.js';
 import { createUploadsRouter } from './routes/uploads.js';
+import { MODEL_EXTENSION_PATTERN } from './model-formats.js';
 
 export function createApp(container: AppContainer) {
   const app = express();
@@ -42,7 +43,10 @@ export function createApp(container: AppContainer) {
     container.guards.auth,
     asyncRoute(async (req, res, next) => {
       const key = routeParam(req.params.key);
-      if (config.STORAGE_PROVIDER !== 'local' || !/^[0-9a-f-]{36}\.3mf$/i.test(key))
+      if (
+        config.STORAGE_PROVIDER !== 'local' ||
+        !new RegExp(`^[0-9a-f-]{36}\\.${MODEL_EXTENSION_PATTERN}$`, 'i').test(key)
+      )
         return apiError(res, 404, 'RESOURCE_NOT_FOUND', '模型不存在');
       await container.demandService.authorizeLocalModel(key, req.user!);
       res.setHeader('Cache-Control', 'private, no-store');

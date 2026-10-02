@@ -43,6 +43,7 @@ export const feedback = {
       positiveText: opts.positiveText || '确认',
       negativeText: opts.negativeText || '取消',
       type: opts.type || 'warning',
+      maskClosable: false,
       onPositiveClick: opts.onPositiveClick,
     }),
 };
